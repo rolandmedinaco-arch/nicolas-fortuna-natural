@@ -61,6 +61,9 @@
               <li><a href="#productos">Productos</a></li>
               <li><a href="#testimonios">Testimonios</a></li>
               <li><a href="#pagos">Cómo Comprar</a></li>
+              <li><a href="/terminos.html" target="_blank">Términos y Condiciones</a></li>
+              <li><a href="/privacidad.html" target="_blank">Política de Privacidad</a></li>
+              <li><a href="/devoluciones.html" target="_blank">Política de Devoluciones</a></li>
             </ul>
           </div>
 
