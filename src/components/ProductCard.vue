@@ -34,12 +34,12 @@
         <span class="price-original">{{ formatPrice(product.originalPrice) }}</span>
       </div>
 
-      <!-- Actions -->
-      <div class="product-actions" @click.stop>
-        <a :href="product.woopinUrl" target="_blank" class="btn btn-primary" style="flex:1">
-          🛒 Comprar
-        </a>
-        <a :href="waUrl" target="_blank" class="btn btn-ghost" style="padding: var(--space-3)">
+<!-- Actions -->
+<div class="product-actions" @click.stop>
+  <button @click="handleAddToCart" class="btn btn-primary" style="flex: 1; text-align: center;">
+    🛒 Agregar
+  </button>
+          <a :href="waUrl" target="_blank" class="btn btn-ghost" style="padding: var(--space-3)">
           💬
         </a>
       </div>
@@ -51,6 +51,13 @@
 import { computed } from 'vue'
 import { formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
+import { useCart } from '../composables/useCart.js'
+
+const { addToCart } = useCart()
+
+function handleAddToCart() {
+  addToCart(props.product)
+}
 
 const props = defineProps({
   product: { type: Object, required: true },

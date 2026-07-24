@@ -19,6 +19,11 @@
            @click.prevent="scrollTo(item.id); menuOpen = false">
           {{ item.label }}
         </a>
+        <!-- Cart button -->
+<button class="nav-cart-btn" @click="toggleCart">
+  🛒
+  <span v-if="cartCount > 0" class="nav-cart-badge">{{ cartCount }}</span>
+</button>
         <a :href="whatsappUrl" target="_blank" class="btn btn-primary btn-sm nav-cta">
           💬 WhatsApp
         </a>
@@ -40,6 +45,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { site } from '../data/site.js'
+import { useCart } from '../composables/useCart.js'
+
+const { cartCount, toggleCart } = useCart()
 
 const isScrolled = ref(false)
 const menuOpen = ref(false)
@@ -193,6 +201,36 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   inset: 0;
   background: rgba(0,0,0,0.4);
   z-index: -1;
+}
+.nav-cart-btn {
+  position: relative;
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  margin-right: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.nav-cart-btn:hover {
+  transform: scale(1.15);
+}
+
+.nav-cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: #c62828;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Fade transition */

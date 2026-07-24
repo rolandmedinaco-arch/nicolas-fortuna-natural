@@ -8,6 +8,7 @@
     <TestimonialsSection />
     <PaymentSection />
     <FooterSection />
+   <CartDrawer />
   </div>
 </template>
 
@@ -21,6 +22,7 @@ import ProductsSection from './components/ProductsSection.vue'
 import TestimonialsSection from './components/TestimonialsSection.vue'
 import PaymentSection from './components/PaymentSection.vue'
 import FooterSection from './components/FooterSection.vue'
+import CartDrawer from './components/CartDrawer.vue'
 import { useScrollAnimation } from './composables/useScrollAnimation.js'
 
 // Initialize scroll animations
