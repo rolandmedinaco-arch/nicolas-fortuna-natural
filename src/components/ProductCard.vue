@@ -1,6 +1,5 @@
 <template>
-  <div class="product-card card" @click="$emit('open-detail', product)">
-    <!-- Image -->
+<router-link :to="`/producto/${product.slug}`" class="product-card card" style="text-decoration: none; color: inherit;">    <!-- Image -->
     <div class="product-img-wrap">
       <img
         :src="product.image || product.imagePlaceholder"
@@ -44,7 +43,7 @@
         </a>
       </div>
     </div>
-  </div>
+</router-link>
 </template>
 
 <script setup>

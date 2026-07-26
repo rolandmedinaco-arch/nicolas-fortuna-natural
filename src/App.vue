@@ -1,34 +1,17 @@
 <template>
   <div id="app">
     <NavBar />
-    <HeroSection />
-    <EsplendorSection />
-    <StatsSection />
-    <ProductsSection />
-    <TestimonialsSection />
-    <PaymentSection />
+    <router-view />
     <FooterSection />
-   <CartDrawer />
+    <CartDrawer />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
 import NavBar from './components/NavBar.vue'
-import HeroSection from './components/HeroSection.vue'
-import EsplendorSection from './components/EsplendorSection.vue'
-import StatsSection from './components/StatsSection.vue'
-import ProductsSection from './components/ProductsSection.vue'
-import TestimonialsSection from './components/TestimonialsSection.vue'
-import PaymentSection from './components/PaymentSection.vue'
 import FooterSection from './components/FooterSection.vue'
 import CartDrawer from './components/CartDrawer.vue'
-import { useScrollAnimation } from './composables/useScrollAnimation.js'
-
-// Initialize scroll animations
-useScrollAnimation()
 </script>
-
 <style>
 /* App-level overrides */
 #app {

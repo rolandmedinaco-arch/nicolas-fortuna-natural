@@ -68,9 +68,13 @@ const whatsappUrl = computed(() =>
 
 function scrollTo(id) {
   const el = document.getElementById(id)
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  } else {
+    // Si no estamos en home, navegar allá
+    window.location.href = '/#' + id
+  }
 }
-
 function onScroll() {
   isScrolled.value = window.scrollY > 60
 
