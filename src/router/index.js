@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import CheckoutConfirmation from '../views/CheckoutConfirmation.vue'
 import CheckoutPage from '../views/CheckoutPage.vue'
 import HomePage from '../views/HomePage.vue'
 
@@ -17,8 +18,14 @@ const routes = [
     path: '/checkout',
     name: 'checkout',
     component: CheckoutPage
+  },
+  {
+    path: '/checkout/confirmacion',
+    name: 'checkout-confirmation',
+    component: CheckoutConfirmation
   }
 ]
+
 
 const router = createRouter({
   history: createWebHistory(),
