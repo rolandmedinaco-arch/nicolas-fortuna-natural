@@ -83,10 +83,10 @@
 
               <!-- CTAs -->
               <div class="modal-ctas">
-                <a :href="selectedProduct.woopinUrl" target="_blank" class="btn btn-accent btn-lg" style="flex:1">
-                  🛒 Comprar con Woopin
-                </a>
-                <a :href="waUrl(selectedProduct)" target="_blank" class="btn btn-ghost">
+<button @click="addToCart(selectedProduct); closeModal()" class="btn btn-accent btn-lg" style="flex:1">
+            🛒 Agregar al Carrito
+          </button>
+                          <a :href="waUrl(selectedProduct)" target="_blank" class="btn btn-ghost">
                   💬
                 </a>
               </div>
@@ -103,6 +103,8 @@ import { ref, computed } from 'vue'
 import { products, CATEGORIES, formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
 import ProductCard from './ProductCard.vue'
+import { useCart } from '../composables/useCart.js'
+const { addToCart } = useCart()
 
 const activeFilter = ref('all')
 const selectedProduct = ref(null)

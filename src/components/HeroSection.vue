@@ -40,10 +40,10 @@
 
         <!-- CTAs -->
         <div class="hero-ctas animate-fade-up delay-5">
-          <a :href="product.woopinUrl" target="_blank" class="btn btn-accent btn-lg">
-            🛒 Comprar Ahora
-          </a>
-          <a :href="whatsappUrl" target="_blank" class="btn btn-outline btn-lg hero-wa-btn">
+<button @click="addToCart(product)" class="btn btn-accent btn-lg">
+          🛒 Comprar Ahora
+        </button>
+                  <a :href="whatsappUrl" target="_blank" class="btn btn-outline btn-lg hero-wa-btn">
             💬 Consultar
           </a>
         </div>
@@ -90,6 +90,8 @@
 import { computed } from 'vue'
 import { getHeroProduct, formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
+import { useCart } from '../composables/useCart.js'
+const { addToCart } = useCart()
 
 const product = getHeroProduct()
 

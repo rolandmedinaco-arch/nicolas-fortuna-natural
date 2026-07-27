@@ -47,7 +47,7 @@
             <h4>Productos</h4>
             <ul>
               <li v-for="p in products" :key="p.id">
-                <a :href="p.woopinUrl" target="_blank">{{ p.name }}</a>
+<router-link :to="'/producto/' + p.slug">{{ p.name }}</router-link>
               </li>
             </ul>
           </div>

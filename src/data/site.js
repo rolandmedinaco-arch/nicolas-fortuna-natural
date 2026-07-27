@@ -29,8 +29,6 @@ export const site = {
   },
 
   payments: {
-    // Woopin — se configura por producto en products.js
-    woopinEnabled: true,
 
     // Bree QR — Sube tu QR a Cloudinary y reemplaza la URL
     breeQR: {

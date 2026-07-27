@@ -23,7 +23,6 @@ export function useCart() {
         image: product.image,
         imagePlaceholder: product.imagePlaceholder,
         quantity: 1,
-        woopinUrl: product.woopinUrl,
         whatsappMessage: product.whatsappMessage
       })
     }
