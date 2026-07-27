@@ -74,6 +74,7 @@
   to="/checkout"
   class="btn btn-primary cart-btn-checkout"
   style="text-align: center; text-decoration: none;"
+  @click="isCartOpen = false"
 >
   💳 Ir al Checkout
 </router-link>
