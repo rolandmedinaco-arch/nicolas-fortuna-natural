@@ -103,24 +103,21 @@
             />
           </div>
           <div class="form-row form-row-3">
-            <div class="form-group">
+<div class="form-group">
               <label for="department">Departamento</label>
-              <select id="department" v-model="form.department" @change="onDepartmentChange" required>
-                <option value="">Seleccionar</option>
-                <option v-for="dept in departments" :key="dept" :value="dept">{{ dept }}</option>
+              <select id="department" v-model="form.department" required>
+                <option value="" disabled>Selecciona un departamento</option>
+                <option v-for="dept in departments" :key="dept.code" :value="dept.code">{{ dept.name }}</option>
               </select>
             </div>
-            <div class="form-group">
+<div class="form-group">
               <label for="city">Ciudad</label>
-              <input
-                type="text"
-                id="city"
-                v-model="form.city"
-                placeholder="Ciudad"
-                required
-              />
+              <select id="city" v-model="form.city" required :disabled="!form.department">
+                <option value="" disabled>{{ form.department ? 'Selecciona una ciudad' : 'Primero selecciona departamento' }}</option>
+                <option v-for="city in filteredCities" :key="city.dane" :value="city.name">{{ city.name }}</option>
+              </select>
             </div>
-            <div class="form-group">
+                        <div class="form-group">
               <label for="postalCode">Código postal (op.)</label>
               <input
                 type="text"
@@ -132,21 +129,30 @@
           </div>
         </section>
 
-        <!-- Shipping method placeholder -->
+<!-- Shipping method -->
         <section class="checkout-section">
           <h2 class="checkout-section-title">Método de envío</h2>
           <div class="shipping-options">
-            <label class="shipping-option" :class="{ active: form.shippingMethod === 'standard' }">
-              <input type="radio" v-model="form.shippingMethod" value="standard" />
+            <label class="shipping-option active">
+              <input type="radio" v-model="form.shippingMethod" value="standard" checked />
               <div class="shipping-option-info">
                 <span class="shipping-option-name">Envío estándar</span>
                 <span class="shipping-option-time">5-7 días hábiles</span>
               </div>
-              <span class="shipping-option-price">{{ formatPrice(shippingCost) }}</span>
+              <span class="shipping-option-price">
+                <span v-if="shippingLoading">Cotizando...</span>
+                <span v-else>{{ formatPrice(shippingCost) }}</span>
+              </span>
             </label>
           </div>
-          <p class="shipping-note">
-            💡 Próximamente: cotización automática con múltiples transportadoras.
+          <p v-if="shippingError" class="shipping-note">
+            ⚠️ {{ shippingError }}
+          </p>
+          <p v-else-if="form.city" class="shipping-note shipping-note-success">
+            ✅ Envío cotizado para {{ form.city }}
+          </p>
+          <p v-else class="shipping-note">
+            💡 Selecciona departamento y ciudad para cotizar el envío.
           </p>
         </section>
 
@@ -245,6 +251,8 @@ import { useRouter } from 'vue-router'
 import { useCart } from '../composables/useCart.js'
 import { formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
+import { departments, getCitiesForDepartment, getDaneCode } from '../data/colombianCities.js'
+import { watch } from 'vue'
 
 const router = useRouter()
 const {
@@ -257,6 +265,65 @@ const {
 
 const discountCode = ref('')
 const shippingCost = ref(15000) // $15.000 COP fijo por ahora
+const shippingLoading = ref(false)
+const shippingError = ref('')
+
+// Ciudades filtradas según departamento seleccionado
+const filteredCities = computed(() => {
+  if (!form.value.department) return []
+  return getCitiesForDepartment(form.value.department)
+})
+
+// Cuando cambia el departamento, resetear ciudad y envío
+watch(() => form.value.department, () => {
+  form.value.city = ''
+  shippingCost.value = 15000
+  shippingError.value = ''
+})
+
+// Cuando selecciona ciudad, cotizar envío
+watch(() => form.value.city, async (newCity) => {
+  if (!newCity || !form.value.department) return
+  
+  const daneCode = getDaneCode(newCity, form.value.department)
+  if (!daneCode) return
+  
+  shippingLoading.value = true
+  shippingError.value = ''
+  
+  try {
+    const res = await fetch('/.netlify/functions/shipping-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination_dane_code: daneCode,
+        items: cartItems.value.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          weight: item.weight || 0.5, // kg por defecto
+          height: item.height || 10,
+          width: item.width || 10,
+          length: item.length || 10
+        }))
+      })
+    })
+    const data = await res.json()
+    
+    if (data.shipping_cost) {
+      shippingCost.value = data.shipping_cost
+    } else {
+      // Fallback a tarifa plana
+      shippingCost.value = 15000
+      shippingError.value = 'Cotización no disponible, se aplica tarifa estándar'
+    }
+  } catch (err) {
+    console.error('Error cotizando envío:', err)
+    shippingCost.value = 15000
+    shippingError.value = 'Error al cotizar, se aplica tarifa estándar'
+  } finally {
+    shippingLoading.value = false
+  }
+})
 
 const form = ref({
   email: '',
@@ -272,15 +339,6 @@ const form = ref({
   shippingMethod: 'standard'
 })
 
-const departments = [
-  'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bolívar',
-  'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca',
-  'Cesar', 'Chocó', 'Córdoba', 'Cundinamarca', 'Guainía',
-  'Guaviare', 'Huila', 'La Guajira', 'Magdalena', 'Meta',
-  'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío',
-  'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre',
-  'Tolima', 'Valle del Cauca', 'Vaupés', 'Vichada'
-]
 
 const grandTotal = computed(() => total.value + shippingCost.value)
 
@@ -289,10 +347,6 @@ const isFormValid = computed(() => {
   return f.email && f.phone && f.firstName && f.lastName &&
          f.cedula && f.address && f.department && f.city
 })
-
-function onDepartmentChange() {
-  // Placeholder: en Fase 2 aquí se cotizará con Envia.com
-}
 
 function applyDiscount() {
   // Placeholder: validar código de descuento
