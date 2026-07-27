@@ -353,38 +353,80 @@ function applyDiscount() {
   // Por ahora solo se aplican los descuentos automáticos del carrito
 }
 
-function handlePay() {
-  if (!isFormValid.value) return
+async function handlePay() {
+    if (!isFormValid.value) return
 
-  const description = cartItems.value
-    .map(item => `${item.name} x${item.quantity}`)
-    .join(', ')
+    const description = cartItems.value
+      .map(item => `${item.name} x${item.quantity}`)
+      .join(', ')
 
-  const handler = window.ePayco.checkout.configure({
-    key: '48d34913070460166b1fadb4157e1084',
-    test: false
-  })
+    // 1. Guardar pedido en Supabase
+    let orderId = null
+    try {
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.value.email,
+          phone: form.value.phone,
+          firstName: form.value.firstName,
+          lastName: form.value.lastName,
+          cedula: form.value.cedula,
+          address: form.value.address,
+          addressExtra: form.value.addressExtra,
+          department: form.value.department,
+          city: form.value.city,
+          postalCode: form.value.postalCode,
+          items: cartItems.value.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            image: item.image
+          })),
+          subtotal: subtotal.value,
+          discountPercent: discountPercent.value,
+          discountAmount: discountAmount.value,
+          shippingCost: shippingCost.value,
+          total: grandTotal.value,
+          shippingMethod: form.value.shippingMethod
+        })
+      })
+      const data = await res.json()
+      if (data.order_id) {
+        orderId = data.order_id
+      }
+    } catch (err) {
+      console.error('Error creando pedido:', err)
+    }
 
-  handler.open({
-    name: 'Fortuna Natural',
-    description: description,
-    invoice: 'FN-' + Date.now(),
-    currency: 'cop',
-    amount: grandTotal.value.toString(),
-    tax_base: '0',
-    tax: '0',
-    country: 'co',
-    lang: 'es',
-    external: 'false',
-    response: window.location.origin + '/checkout/confirmacion',
-    confirmation: '',
-    email_billing: form.value.email,
-    name_billing: form.value.firstName + ' ' + form.value.lastName,
-    address_billing: form.value.address,
-    methodsDisable: []
-  })
-}
-</script>
+    // 2. Abrir ePayco con el order_id
+    const handler = window.ePayco.checkout.configure({
+      key: '48d34913070460166b1fadb4157e1084',
+      test: false
+    })
+
+    handler.open({
+      name: 'Fortuna Natural',
+      description: description,
+      invoice: orderId || 'FN-' + Date.now(),
+      currency: 'cop',
+      amount: grandTotal.value.toString(),
+      tax_base: '0',
+      tax: '0',
+      country: 'co',
+      lang: 'es',
+      external: 'false',
+      response: window.location.origin + '/checkout/confirmacion',
+      confirmation: window.location.origin + '/api/epayco-webhook',
+      email_billing: form.value.email,
+      name_billing: form.value.firstName + ' ' + form.value.lastName,
+      address_billing: form.value.address,
+      methodsDisable: [],
+      extra1: orderId
+    })
+  }
+  </script>
 
 <style scoped>
 .checkout-page {
