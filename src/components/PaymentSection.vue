@@ -10,43 +10,18 @@
       </div>
 
       <div class="payments-grid">
-        <!-- Woopin card -->
-        <div class="payment-card woopin-card animate-on-scroll from-left">
-          <div class="payment-card-header">
-            <div class="payment-icon">🛒</div>
-            <h3>Pago con Woopin</h3>
-            <p>Pasarela de pagos segura — tarjetas, PSE, y más.</p>
-          </div>
-
-          <div class="woopin-steps">
-            <div v-for="(step, i) in woopinSteps" :key="i" class="woopin-step">
-              <div class="step-num">{{ i + 1 }}</div>
-              <div class="step-text">{{ step }}</div>
-            </div>
-          </div>
-
-          <!-- Products list for Woopin -->
-          <div class="woopin-products">
-            <h5>Selecciona tu producto:</h5>
-            <div class="woopin-product-list">
-              <a
-                v-for="p in products"
-                :key="p.id"
-                :href="p.woopinUrl"
-                target="_blank"
-                class="woopin-product-btn"
-              >
-                <span class="wpp-name">{{ p.name }}</span>
-                <span class="wpp-price">{{ formatPrice(p.price) }}</span>
-                <span class="wpp-arrow">→</span>
-              </a>
-            </div>
-          </div>
-
-          <div class="payment-logos">
-            <span v-for="m in paymentMethods" :key="m" class="pm-pill">{{ m }}</span>
-          </div>
+        <!-- ePayco card -->
+<div class="payment-card epayco-card animate-on-scroll from-left">
+        <div class="payment-card-header">
+          <div class="payment-icon">💳</div>
+          <h3>Paga en línea con ePayco</h3>
+          <p>Agrega productos al carrito y paga de forma segura.</p>
         </div>
+        <div class="payment-logos">
+          <span v-for="m in paymentMethods" :key="m" class="pm-pill">{{ m }}</span>
+        </div>
+      </div>
+              </div>
 
         <!-- Bree QR card -->
         <div class="payment-card bree-card animate-on-scroll from-right">
@@ -121,16 +96,9 @@
 
 <script setup>
 import { site } from '../data/site.js'
-import { products, formatPrice } from '../data/products.js'
-
+import { formatPrice } from '../data/products.js'
 const breeQR = site.payments.breeQR
 
-const woopinSteps = [
-  'Selecciona el producto que deseas comprar.',
-  'Haz clic en "Comprar con Woopin".',
-  'Completa tu información y elige tu método de pago.',
-  'Confirma y recibe tu orden. ¡Listo!',
-]
 
 const breeSteps = [
   { icon: '📲', title: 'Abre tu app bancaria', desc: 'Cualquier banco de Colombia.' },
@@ -180,9 +148,9 @@ const paymentMethods = ['Visa', 'Mastercard', 'PSE', 'Nequi', 'Daviplata', 'Efec
 .payment-card-header p { color: var(--color-text-muted); font-size: var(--text-sm); }
 .text-center { text-align: center; }
 
-/* Woopin steps */
-.woopin-steps { display: flex; flex-direction: column; gap: var(--space-3); }
-.woopin-step {
+/* Payment steps */
+.payment-steps { display: flex; flex-direction: column; gap: var(--space-3); }
+.payment-step {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -203,34 +171,6 @@ const paymentMethods = ['Visa', 'Mastercard', 'PSE', 'Nequi', 'Daviplata', 'Efec
   flex-shrink: 0;
 }
 
-/* Woopin product list */
-.woopin-products h5 {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  margin-bottom: var(--space-3);
-  color: var(--color-text);
-}
-.woopin-product-list { display: flex; flex-direction: column; gap: var(--space-2); }
-.woopin-product-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-primary-pale);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  border: 1px solid transparent;
-}
-.woopin-product-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-.wpp-name { font-weight: 600; font-size: var(--text-sm); flex: 1; }
-.wpp-price { font-size: var(--text-sm); font-weight: 700; color: var(--color-primary); }
-.woopin-product-btn:hover .wpp-price { color: white; }
-.wpp-arrow { font-size: 1rem; color: var(--color-muted); }
 
 /* Payment method badges */
 .payment-logos { display: flex; flex-wrap: wrap; gap: var(--space-2); }
