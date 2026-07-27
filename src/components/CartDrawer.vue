@@ -70,12 +70,13 @@
 
           <!-- Actions -->
           <div class="cart-actions">
-<button
-  @click="payWithEpayco"
+<router-link
+  to="/checkout"
   class="btn btn-primary cart-btn-checkout"
+  style="text-align: center; text-decoration: none;"
 >
-  💳 Pagar con ePayco
-</button>
+  💳 Ir al Checkout
+</router-link>
 
 <a
   :href="whatsappCheckoutUrl"

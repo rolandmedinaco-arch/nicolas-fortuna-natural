@@ -1,16 +1,21 @@
 <template>
   <div id="app">
-    <NavBar />
+    <NavBar v-if="!isCheckout" />
     <router-view />
-    <FooterSection />
-    <CartDrawer />
+    <FooterSection v-if="!isCheckout" />
+    <CartDrawer v-if="!isCheckout" />
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import NavBar from './components/NavBar.vue'
 import FooterSection from './components/FooterSection.vue'
 import CartDrawer from './components/CartDrawer.vue'
+
+const route = useRoute()
+const isCheckout = computed(() => route.path.startsWith('/checkout'))
 </script>
 <style>
 /* App-level overrides */

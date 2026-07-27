@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import CheckoutPage from '../views/CheckoutPage.vue'
 import HomePage from '../views/HomePage.vue'
 
 const routes = [
@@ -11,6 +12,11 @@ const routes = [
     path: '/producto/:slug',
     name: 'product-detail',
     component: () => import('../views/ProductDetail.vue')
+  },
+  {
+    path: '/checkout',
+    name: 'checkout',
+    component: CheckoutPage
   }
 ]
 

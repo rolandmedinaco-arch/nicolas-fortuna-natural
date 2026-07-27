@@ -21,7 +21,6 @@
           <span v-for="m in paymentMethods" :key="m" class="pm-pill">{{ m }}</span>
         </div>
       </div>
-              </div>
 
         <!-- Bree QR card -->
         <div class="payment-card bree-card animate-on-scroll from-right">
@@ -90,8 +89,8 @@
           </div>
         </div>
       </div>
-    </div>
-  </section>
+      </div>
+   </section>
 </template>
 
 <script setup>
