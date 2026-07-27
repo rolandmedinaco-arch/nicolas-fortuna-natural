@@ -62,10 +62,10 @@
           </div>
 
           <div class="info-ctas">
-            <a :href="product.woopinUrl" target="_blank" class="btn btn-accent btn-lg">
-              🛒 Comprar con Woopin
-            </a>
-            <a :href="whatsappUrl" target="_blank" class="btn btn-ghost">
+<button @click="addToCart(product)" class="btn btn-accent btn-lg">
+          🛒 Comprar Ahora
+        </button>
+                    <a :href="whatsappUrl" target="_blank" class="btn btn-ghost">
               💬 Preguntar por WhatsApp
             </a>
           </div>
@@ -85,6 +85,8 @@
 import { computed } from 'vue'
 import { getHeroProduct, formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
+import { useCart } from '../composables/useCart.js'
+const { addToCart } = useCart()
 
 const product = getHeroProduct()
 
