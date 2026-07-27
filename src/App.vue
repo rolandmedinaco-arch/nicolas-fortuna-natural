@@ -15,7 +15,7 @@ import FooterSection from './components/FooterSection.vue'
 import CartDrawer from './components/CartDrawer.vue'
 
 const route = useRoute()
-const isCheckout = computed(() => route.path.startsWith('/checkout'))
+const isCheckout = computed(() => route.path.startsWith('/checkout') || route.path.startsWith('/admin'))
 </script>
 <style>
 /* App-level overrides */

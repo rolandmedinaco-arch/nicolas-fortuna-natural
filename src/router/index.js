@@ -20,6 +20,11 @@ const routes = [
     component: CheckoutPage
   },
   {
+  path: '/admin',
+  name: 'Admin',
+  component: () => import('../views/AdminPage.vue')
+},
+  {
     path: '/checkout/confirmacion',
     name: 'checkout-confirmation',
     component: CheckoutConfirmation
