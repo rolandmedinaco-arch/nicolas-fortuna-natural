@@ -284,6 +284,25 @@ const filteredCities = computed(() => {
   return getCitiesForDepartment(form.value.department)
 })
 
+const form = ref({
+  email: '',
+  phone: '',
+  firstName: '',
+  lastName: '',
+  cedula: '',
+  address: '',
+  addressExtra: '',
+  department: '',
+  city: '',
+  postalCode: '',
+  shippingMethod: 'standard'
+})
+// Ciudades filtradas según departamento seleccionado
+const filteredCities = computed(() => {
+  if (!form.value.department) return []
+  return getCitiesForDepartment(form.value.department)
+})
+
 // Cuando cambia el departamento, resetear ciudad y envío
 watch(() => form.value.department, () => {
   form.value.city = ''
@@ -338,20 +357,6 @@ watch(() => form.value.department, () => {
       shippingLoading.value = false
     }
   })
-
-const form = ref({
-  email: '',
-  phone: '',
-  firstName: '',
-  lastName: '',
-  cedula: '',
-  address: '',
-  addressExtra: '',
-  department: '',
-  city: '',
-  postalCode: '',
-  shippingMethod: 'standard'
-})
 
 
 const grandTotal = computed(() => total.value + shippingCost.value)
