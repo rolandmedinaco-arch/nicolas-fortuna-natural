@@ -132,44 +132,52 @@
 <!-- Shipping method -->
         <section class="checkout-section">
           <h2 class="checkout-section-title">Método de envío</h2>
-          <div class="shipping-options">
+          
+          <div v-if="shippingLoading" class="shipping-loading">
+            <span>🔄 Cotizando con transportadoras...</span>
+          </div>
+
+          <div v-else-if="shippingOptions.length > 0" class="shipping-options">
+            <label 
+              v-for="carrier in shippingOptions" 
+              :key="carrier.carrier + carrier.service"
+              class="shipping-option"
+              :class="{ active: selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service }"
+              @click="selectCarrier(carrier)"
+            >
+              <input 
+                type="radio" 
+                name="shipping" 
+                :checked="selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service"
+              />
+              <div class="shipping-option-info">
+                <span class="shipping-option-name">{{ carrier.carrier }}</span>
+                <span class="shipping-option-time">{{ carrier.delivery_time }}</span>
+              </div>
+              <span class="shipping-option-price">{{ formatPrice(carrier.price) }}</span>
+            </label>
+          </div>
+
+          <div v-else class="shipping-options">
             <label class="shipping-option active">
-              <input type="radio" v-model="form.shippingMethod" value="standard" checked />
+              <input type="radio" checked />
               <div class="shipping-option-info">
                 <span class="shipping-option-name">Envío estándar</span>
                 <span class="shipping-option-time">5-7 días hábiles</span>
               </div>
-              <span class="shipping-option-price">
-                <span v-if="shippingLoading">Cotizando...</span>
-                <span v-else>{{ formatPrice(shippingCost) }}</span>
-              </span>
+              <span class="shipping-option-price">{{ formatPrice(shippingCost) }}</span>
             </label>
           </div>
+
           <p v-if="shippingError" class="shipping-note">
             ⚠️ {{ shippingError }}
           </p>
-          <p v-else-if="form.city" class="shipping-note shipping-note-success">
-            ✅ Envío cotizado para {{ form.city }}
+          <p v-else-if="form.city && !shippingLoading && shippingOptions.length > 0" class="shipping-note shipping-note-success">
+            ✅ {{ shippingOptions.length }} opciones de envío para {{ form.city }}
           </p>
-          <p v-else class="shipping-note">
+          <p v-else-if="!form.city" class="shipping-note">
             💡 Selecciona departamento y ciudad para cotizar el envío.
           </p>
-        </section>
-
-        <!-- Payment -->
-        <section class="checkout-section">
-          <h2 class="checkout-section-title">Pago</h2>
-          <p class="payment-info">
-            Al hacer clic en "Pagar", serás redirigido a ePayco para completar tu pago de forma segura.
-          </p>
-          <div class="payment-methods-row">
-            <span class="pm-badge">Visa</span>
-            <span class="pm-badge">Mastercard</span>
-            <span class="pm-badge">PSE</span>
-            <span class="pm-badge">Nequi</span>
-            <span class="pm-badge">Daviplata</span>
-            <span class="pm-badge">Efecty</span>
-          </div>
         </section>
 
         <!-- Submit -->
@@ -267,6 +275,8 @@ const discountCode = ref('')
 const shippingCost = ref(15000) // $15.000 COP fijo por ahora
 const shippingLoading = ref(false)
 const shippingError = ref('')
+const shippingOptions = ref([])
+const selectedCarrier = ref(null)
 
 // Ciudades filtradas según departamento seleccionado
 const filteredCities = computed(() => {
@@ -282,48 +292,52 @@ watch(() => form.value.department, () => {
 })
 
 // Cuando selecciona ciudad, cotizar envío
-watch(() => form.value.city, async (newCity) => {
-  if (!newCity || !form.value.department) return
-  
-  const daneCode = getDaneCode(newCity, form.value.department)
-  if (!daneCode) return
-  
-  shippingLoading.value = true
-  shippingError.value = ''
-  
-  try {
-    const res = await fetch('/.netlify/functions/shipping-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        destination_dane_code: daneCode,
-        items: cartItems.value.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          weight: item.weight || 0.5, // kg por defecto
-          height: item.height || 10,
-          width: item.width || 10,
-          length: item.length || 10
-        }))
+  watch(() => form.value.city, async (newCity) => {
+    if (!newCity || !form.value.department) return
+
+    const daneCode = getDaneCode(newCity, form.value.department)
+    if (!daneCode) return
+
+    shippingLoading.value = true
+    shippingError.value = ''
+    shippingOptions.value = []
+    selectedCarrier.value = null
+
+    try {
+      const res = await fetch('/.netlify/functions/shipping-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination_dane_code: daneCode,
+          items: cartItems.value.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            weight: item.weight || 0.5,
+            height: item.height || 10,
+            width: item.width || 10,
+            length: item.length || 10
+          }))
+        })
       })
-    })
-    const data = await res.json()
-    
-    if (data.shipping_cost) {
-      shippingCost.value = data.shipping_cost
-    } else {
-      // Fallback a tarifa plana
+      const data = await res.json()
+
+      if (data.carriers && data.carriers.length > 0) {
+        shippingOptions.value = data.carriers
+        selectedCarrier.value = data.carriers[0]
+        shippingCost.value = data.carriers[0].price
+      } else {
+        shippingCost.value = 15000
+        shippingError.value = 'No se encontraron opciones de envío'
+      }
+    } catch (err) {
+      console.error('Error cotizando envío:', err)
       shippingCost.value = 15000
-      shippingError.value = 'Cotización no disponible, se aplica tarifa estándar'
+      shippingError.value = 'Error al cotizar, tarifa estándar aplicada'
+    } finally {
+      shippingLoading.value = false
     }
-  } catch (err) {
-    console.error('Error cotizando envío:', err)
-    shippingCost.value = 15000
-    shippingError.value = 'Error al cotizar, se aplica tarifa estándar'
-  } finally {
-    shippingLoading.value = false
-  }
-})
+  })
 
 const form = ref({
   email: '',
@@ -347,6 +361,11 @@ const isFormValid = computed(() => {
   return f.email && f.phone && f.firstName && f.lastName &&
          f.cedula && f.address && f.department && f.city
 })
+
+function selectCarrier(carrier) {
+    selectedCarrier.value = carrier
+    shippingCost.value = carrier.price
+  }
 
 function applyDiscount() {
   // Placeholder: validar código de descuento
@@ -440,6 +459,13 @@ async function handlePay() {
   padding: 1rem 2rem;
   border-bottom: 1px solid #e5e5e5;
   background: #fff;
+}
+.shipping-loading {
+  padding: 1.5rem;
+  text-align: center;
+  color: #666;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
 }
 
 .checkout-logo {
