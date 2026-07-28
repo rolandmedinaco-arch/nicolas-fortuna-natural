@@ -278,11 +278,6 @@ const shippingError = ref('')
 const shippingOptions = ref([])
 const selectedCarrier = ref(null)
 
-// Ciudades filtradas según departamento seleccionado
-const filteredCities = computed(() => {
-  if (!form.value.department) return []
-  return getCitiesForDepartment(form.value.department)
-})
 
 const form = ref({
   email: '',
