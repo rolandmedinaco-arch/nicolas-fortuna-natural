@@ -254,13 +254,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCart } from '../composables/useCart.js'
 import { formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
 import { departments, getCitiesForDepartment, getDaneCode } from '../data/colombianCities.js'
-import { watch } from 'vue'
 
 const router = useRouter()
 const {
@@ -272,12 +271,11 @@ const {
 } = useCart()
 
 const discountCode = ref('')
-const shippingCost = ref(15000) // $15.000 COP fijo por ahora
+const shippingCost = ref(15000)
 const shippingLoading = ref(false)
 const shippingError = ref('')
 const shippingOptions = ref([])
 const selectedCarrier = ref(null)
-
 
 const form = ref({
   email: '',
@@ -292,67 +290,12 @@ const form = ref({
   postalCode: '',
   shippingMethod: 'standard'
 })
+
 // Ciudades filtradas según departamento seleccionado
 const filteredCities = computed(() => {
   if (!form.value.department) return []
   return getCitiesForDepartment(form.value.department)
 })
-
-// Cuando cambia el departamento, resetear ciudad y envío
-watch(() => form.value.department, () => {
-  form.value.city = ''
-  shippingCost.value = 15000
-  shippingError.value = ''
-})
-
-// Cuando selecciona ciudad, cotizar envío
-  watch(() => form.value.city, async (newCity) => {
-    if (!newCity || !form.value.department) return
-
-    const daneCode = getDaneCode(newCity, form.value.department)
-    if (!daneCode) return
-
-    shippingLoading.value = true
-    shippingError.value = ''
-    shippingOptions.value = []
-    selectedCarrier.value = null
-
-    try {
-      const res = await fetch('/.netlify/functions/shipping-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destination_dane_code: daneCode,
-          items: cartItems.value.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            weight: item.weight || 0.5,
-            height: item.height || 10,
-            width: item.width || 10,
-            length: item.length || 10
-          }))
-        })
-      })
-      const data = await res.json()
-
-      if (data.carriers && data.carriers.length > 0) {
-        shippingOptions.value = data.carriers
-        selectedCarrier.value = data.carriers[0]
-        shippingCost.value = data.carriers[0].price
-      } else {
-        shippingCost.value = 15000
-        shippingError.value = 'No se encontraron opciones de envío'
-      }
-    } catch (err) {
-      console.error('Error cotizando envío:', err)
-      shippingCost.value = 15000
-      shippingError.value = 'Error al cotizar, tarifa estándar aplicada'
-    } finally {
-      shippingLoading.value = false
-    }
-  })
-
 
 const grandTotal = computed(() => total.value + shippingCost.value)
 
@@ -362,90 +305,146 @@ const isFormValid = computed(() => {
          f.cedula && f.address && f.department && f.city
 })
 
-function selectCarrier(carrier) {
-    selectedCarrier.value = carrier
-    shippingCost.value = carrier.price
+// Cuando cambia el departamento, resetear ciudad y envío
+watch(() => form.value.department, () => {
+  form.value.city = ''
+  shippingCost.value = 15000
+  shippingError.value = ''
+  shippingOptions.value = []
+  selectedCarrier.value = null
+})
+
+// Cuando selecciona ciudad, cotizar envío
+watch(() => form.value.city, async (newCity) => {
+  if (!newCity || !form.value.department) return
+
+  const daneCode = getDaneCode(newCity, form.value.department)
+  if (!daneCode) return
+
+  shippingLoading.value = true
+  shippingError.value = ''
+  shippingOptions.value = []
+  selectedCarrier.value = null
+
+  try {
+    const res = await fetch('/.netlify/functions/shipping-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destination_dane_code: daneCode,
+        items: cartItems.value.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          weight: item.weight || 0.5,
+          height: item.height || 10,
+          width: item.width || 10,
+          length: item.length || 10
+        }))
+      })
+    })
+    const data = await res.json()
+
+    if (data.carriers && data.carriers.length > 0) {
+      shippingOptions.value = data.carriers
+      selectedCarrier.value = data.carriers[0]
+      shippingCost.value = data.carriers[0].price
+    } else {
+      shippingCost.value = 15000
+      shippingError.value = 'No se encontraron opciones de envío'
+    }
+  } catch (err) {
+    console.error('Error cotizando envío:', err)
+    shippingCost.value = 15000
+    shippingError.value = 'Error al cotizar, tarifa estándar aplicada'
+  } finally {
+    shippingLoading.value = false
   }
+})
+
+function selectCarrier(carrier) {
+  selectedCarrier.value = carrier
+  shippingCost.value = carrier.price
+}
 
 function applyDiscount() {
   // Placeholder: validar código de descuento
-  // Por ahora solo se aplican los descuentos automáticos del carrito
 }
 
 async function handlePay() {
-    if (!isFormValid.value) return
+  if (!isFormValid.value) return
 
-    const description = cartItems.value
-      .map(item => `${item.name} x${item.quantity}`)
-      .join(', ')
+  const description = cartItems.value
+    .map(item => `${item.name} x${item.quantity}`)
+    .join(', ')
 
-    // 1. Guardar pedido en Supabase
-    let orderId = null
-    try {
-      const res = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: form.value.email,
-          phone: form.value.phone,
-          firstName: form.value.firstName,
-          lastName: form.value.lastName,
-          cedula: form.value.cedula,
-          address: form.value.address,
-          addressExtra: form.value.addressExtra,
-          department: form.value.department,
-          city: form.value.city,
-          postalCode: form.value.postalCode,
-          items: cartItems.value.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image: item.image
-          })),
-          subtotal: subtotal.value,
-          discountPercent: discountPercent.value,
-          discountAmount: discountAmount.value,
-          shippingCost: shippingCost.value,
-          total: grandTotal.value,
-          shippingMethod: form.value.shippingMethod
-        })
+  // 1. Guardar pedido en Supabase
+  let orderId = null
+  try {
+    const res = await fetch('/api/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: form.value.email,
+        phone: form.value.phone,
+        firstName: form.value.firstName,
+        lastName: form.value.lastName,
+        cedula: form.value.cedula,
+        address: form.value.address,
+        addressExtra: form.value.addressExtra,
+        department: form.value.department,
+        city: form.value.city,
+        postalCode: form.value.postalCode,
+        items: cartItems.value.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image
+        })),
+        subtotal: subtotal.value,
+        discountPercent: discountPercent.value,
+        discountAmount: discountAmount.value,
+        shippingCost: shippingCost.value,
+        total: grandTotal.value,
+        shippingMethod: form.value.shippingMethod
       })
-      const data = await res.json()
-      if (data.order_id) {
-        orderId = data.order_id
-      }
-    } catch (err) {
-      console.error('Error creando pedido:', err)
+    })
+    const data = await res.json()
+    if (data.order_id) {
+      orderId = data.order_id
     }
-
-    // 2. Abrir ePayco con el order_id
-    const handler = window.ePayco.checkout.configure({
-      key: '48d34913070460166b1fadb4157e1084',
-      test: false
-    })
-
-    handler.open({
-      name: 'Fortuna Natural',
-      description: description,
-      invoice: orderId || 'FN-' + Date.now(),
-      currency: 'cop',
-      amount: grandTotal.value.toString(),
-      tax_base: '0',
-      tax: '0',
-      country: 'co',
-      lang: 'es',
-      external: 'false',
-      response: window.location.origin + '/checkout/confirmacion',
-      confirmation: window.location.origin + '/api/epayco-webhook',
-      email_billing: form.value.email,
-      name_billing: form.value.firstName + ' ' + form.value.lastName,
-      address_billing: form.value.address,
-      methodsDisable: [],
-      extra1: orderId
-    })
+  } catch (err) {
+    console.error('Error creando pedido:', err)
   }
-  </script>
+
+  // 2. Abrir ePayco con el order_id
+  const handler = window.ePayco.checkout.configure({
+    key: '48d34913070460166b1fadb4157e1084',
+    test: false
+  })
+
+  handler.open({
+    name: 'Fortuna Natural',
+    description: description,
+    invoice: orderId || 'FN-' + Date.now(),
+    currency: 'cop',
+    amount: grandTotal.value.toString(),
+    tax_base: '0',
+    tax: '0',
+    country: 'co',
+    lang: 'es',
+    external: 'false',
+    response: window.location.origin + '/checkout/confirmacion',
+    confirmation: window.location.origin + '/api/epayco-webhook',
+    email_billing: form.value.email,
+    name_billing: form.value.firstName + ' ' + form.value.lastName,
+    address_billing: form.value.address,
+    methodsDisable: [],
+    extra1: orderId
+  })
+}
+</script>
 
 <style scoped>
 .checkout-page {
