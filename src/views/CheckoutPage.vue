@@ -130,55 +130,82 @@
         </section>
 
 <!-- Shipping method -->
-        <section class="checkout-section">
-          <h2 class="checkout-section-title">Método de envío</h2>
-          
-          <div v-if="shippingLoading" class="shipping-loading">
-            <span>🔄 Cotizando con transportadoras...</span>
-          </div>
-
-          <div v-else-if="shippingOptions.length > 0" class="shipping-options">
-            <label 
-              v-for="carrier in shippingOptions" 
-              :key="carrier.carrier + carrier.service"
-              class="shipping-option"
-              :class="{ active: selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service }"
-              @click="selectCarrier(carrier)"
-            >
-              <input 
-                type="radio" 
-                name="shipping" 
-                :checked="selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service"
-              />
-              <div class="shipping-option-info">
-                <span class="shipping-option-name">{{ carrier.carrier }}</span>
-                <span class="shipping-option-time">{{ carrier.delivery_time }}</span>
-              </div>
-              <span class="shipping-option-price">{{ formatPrice(carrier.price) }}</span>
-            </label>
-          </div>
-
-          <div v-else class="shipping-options">
-            <label class="shipping-option active">
-              <input type="radio" checked />
-              <div class="shipping-option-info">
-                <span class="shipping-option-name">Envío estándar</span>
-                <span class="shipping-option-time">5-7 días hábiles</span>
-              </div>
-              <span class="shipping-option-price">{{ formatPrice(shippingCost) }}</span>
-            </label>
-          </div>
-
-          <p v-if="shippingError" class="shipping-note">
-            ⚠️ {{ shippingError }}
-          </p>
-          <p v-else-if="form.city && !shippingLoading && shippingOptions.length > 0" class="shipping-note shipping-note-success">
-            ✅ {{ shippingOptions.length }} opciones de envío para {{ form.city }}
-          </p>
-          <p v-else-if="!form.city" class="shipping-note">
-            💡 Selecciona departamento y ciudad para cotizar el envío.
-          </p>
-        </section>
+ <section class="checkout-section">
+            <h2 class="checkout-section-title">Método de envío</h2>
+ 
+            <!-- Loading -->
+            <div v-if="shippingLoading" class="shipping-loading">
+              <div class="shipping-spinner"></div>
+              <span>Cotizando opciones de envío...</span>
+            </div>
+ 
+            <!-- Opciones de envío -->
+            <div v-else-if="shippingOptions.length > 0" class="shipping-options">
+              <label
+                v-for="carrier in shippingOptions"
+                :key="carrier.carrier + carrier.service"
+                class="shipping-option"
+                :class="{
+                  active: selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service,
+                  recommended: carrier.recommended
+                }"
+                @click="selectCarrier(carrier)"
+              >
+                <input
+                  type="radio"
+                  name="shipping"
+                  :checked="selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service"
+                  class="shipping-radio-hidden"
+                />
+ 
+                <div class="shipping-logo">
+                  <img
+                    v-if="carrier.logo"
+                    :src="carrier.logo"
+                    :alt="carrier.carrier"
+                    class="shipping-logo-img"
+                  />
+                  <div v-else class="shipping-logo-fallback">
+                    {{ carrier.carrier.charAt(0) }}
+                  </div>
+                </div>
+ 
+                <div class="shipping-option-info">
+                  <div class="shipping-carrier-row">
+                    <span class="shipping-option-name">{{ carrier.carrier }}</span>
+                    <span v-if="carrier.recommended" class="shipping-badge">Más económico</span>
+                  </div>
+                  <span class="shipping-option-time">{{ carrier.service }} · {{ carrier.delivery_time }}</span>
+                </div>
+ 
+                <span class="shipping-option-price">{{ formatPrice(carrier.price) }}</span>
+              </label>
+            </div>
+ 
+            <!-- Fallback: tarifa plana -->
+            <div v-else class="shipping-options">
+              <label class="shipping-option active">
+                <input type="radio" checked class="shipping-radio-hidden" />
+                <div class="shipping-logo-fallback">📦</div>
+                <div class="shipping-option-info">
+                  <span class="shipping-option-name">Envío estándar</span>
+                  <span class="shipping-option-time">5-7 días hábiles</span>
+                </div>
+                <span class="shipping-option-price">{{ formatPrice(shippingCost) }}</span>
+              </label>
+            </div>
+ 
+            <!-- Mensajes -->
+            <p v-if="shippingError" class="shipping-note shipping-note-error">
+              ⚠️ {{ shippingError }}
+            </p>
+            <p v-else-if="form.city && !shippingLoading && shippingOptions.length > 0" class="shipping-note">
+              ✅ {{ shippingOptions.length }} opciones de envío para {{ form.city }}
+            </p>
+            <p v-else-if="!form.city" class="shipping-note">
+              📍 Selecciona departamento y ciudad para cotizar el envío.
+            </p>
+          </section>
 
         <!-- Submit -->
         <button
@@ -601,55 +628,181 @@ async function handlePay() {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-/* Shipping options */
+/* ── Shipping Options (mejorado con logos) ── */
+ 
+.shipping-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 14px;
+}
+ 
+.shipping-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2d6a30;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+ 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+ 
 .shipping-options {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
-
+ 
 .shipping-option {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid #d1d1d1;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.15s ease;
+  background: #fff;
 }
-
+ 
+.shipping-option:hover {
+  border-color: #2d6a30;
+  background: #f8fdf8;
+}
+ 
 .shipping-option.active {
-  border-color: var(--color-primary, #1a3c2a);
-  background: rgba(26, 60, 42, 0.03);
+  border-color: #2d6a30;
+  background: #f0faf0;
+  box-shadow: 0 0 0 1px #2d6a30;
 }
-
-.shipping-option input[type="radio"] {
-  accent-color: var(--color-primary, #1a3c2a);
+ 
+.shipping-radio-hidden {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
-
+ 
+.shipping-logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+ 
+.shipping-logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+ 
+.shipping-logo-fallback {
+  width: 40px;
+  height: 40px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #6b7280;
+}
+ 
 .shipping-option-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
 }
-
+ 
+.shipping-carrier-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+ 
 .shipping-option-name {
   font-weight: 600;
-  font-size: 0.9375rem;
-  color: #333;
+  font-size: 15px;
+  color: #1a1a1a;
 }
-
+ 
+.shipping-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 100px;
+}
+ 
 .shipping-option-time {
-  font-size: 0.8125rem;
-  color: #888;
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
 }
-
+ 
 .shipping-option-price {
-  font-weight: 700;
-  color: #333;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 15px;
+  color: #1a1a1a;
+  text-align: right;
+  white-space: nowrap;
 }
-
+ 
+.shipping-note {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+ 
+.shipping-note-error {
+  color: #991b1b;
+  background: #fef2f2;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+ 
+@media (max-width: 480px) {
+  .shipping-option {
+    padding: 12px;
+    gap: 10px;
+  }
+ 
+  .shipping-logo {
+    width: 36px;
+    height: 36px;
+  }
+ 
+  .shipping-logo-img,
+  .shipping-logo-fallback {
+    width: 32px;
+    height: 32px;
+  }
+ 
+  .shipping-option-name {
+    font-size: 14px;
+  }
+ 
+  .shipping-option-price {
+    font-size: 14px;
+  }
+}
+ 
 .shipping-note {
   margin-top: 0.75rem;
   font-size: 0.8125rem;
