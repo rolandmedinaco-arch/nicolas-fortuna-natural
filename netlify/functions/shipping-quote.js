@@ -199,7 +199,7 @@ export default async (req) => {
           delivery_time: deliveryTime,
           price: Math.round(price),
           currency: option.currency || 'COP',
-          logo: option.carrierLogoURL || CARRIER_LOGOS[carrier] || null,
+logo: option.img || option.carrierLogoURL || option.carrier_logo || null,
           service_id: option.service_id || option.serviceId || ''
         })
       }
