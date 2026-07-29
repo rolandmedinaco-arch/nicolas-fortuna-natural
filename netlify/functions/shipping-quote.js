@@ -1,6 +1,6 @@
 // netlify/functions/shipping-quote.js
 // Cotiza envíos con múltiples transportadoras usando Envia.com API
-// Devuelve todas las opciones para que el cliente escoja
+// Formato correcto para Colombia con códigos DANE
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -18,6 +18,7 @@ export default async (req) => {
 
     // Si no hay API key, devolver tarifa plana
     if (!ENVIA_API_KEY) {
+      console.log('No ENVIA_API_KEY configured')
       return new Response(JSON.stringify({
         carriers: [{
           carrier: 'Envío estándar',
@@ -27,19 +28,16 @@ export default async (req) => {
           currency: 'COP'
         }],
         fallback: true,
-        message: 'API key no configurada, tarifa plana aplicada'
+        message: 'API key no configurada'
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
     }
 
-    // Calcular peso y dimensiones totales
+    // Calcular peso y dimensiones
     let totalWeight = 0
     let totalHeight = 0
-    const maxWidth = 30
-    const maxLength = 30
-
     if (items && items.length > 0) {
       items.forEach(item => {
         const qty = item.quantity || 1
@@ -51,95 +49,64 @@ export default async (req) => {
       totalHeight = 15
     }
 
-    // Calcular valor declarado
-    const declaredValue = items 
-      ? items.reduce((sum, item) => sum + (item.price || 50000) * (item.quantity || 1), 0) 
-      : 50000
-
     // Origen: Medellín (DANE 05001)
     const originDane = '05001'
 
-    // Llamar API de Envia.com
+    // Formato correcto para Colombia
+    const requestBody = {
+      origin: {
+        country: 'CO',
+        postal_code: originDane
+      },
+      destination: {
+        country: 'CO',
+        postal_code: destination_dane_code
+      },
+      packages: [{
+        weight: Math.max(Math.round(totalWeight * 10) / 10, 0.5),
+        height: Math.min(Math.round(totalHeight), 50),
+        width: 20,
+        length: 20,
+        type: 'box'
+      }],
+      carriers: [
+        'coordinadora',
+        'serviEntrega',
+        'interrapidisimo',
+        'tcc',
+        'envia'
+      ],
+      insurance: 0,
+      type: 'National'
+    }
+
+    console.log('Envia.com request:', JSON.stringify(requestBody))
+
     const enviaResponse = await fetch('https://api.envia.com/ship/rate/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${ENVIA_API_KEY}`
       },
-      body: JSON.stringify({
-        origin: {
-          name: 'Fortuna Natural',
-          company: 'Fortuna Natural',
-          email: 'soynicogil@gmail.com',
-          phone: '3143049102',
-          street: 'Medellín',
-          number: 'S/N',
-          district: 'Medellín',
-          city: originDane,
-          state: 'AN',
-          country: 'CO',
-          postalCode: originDane,
-          reference: ''
-        },
-        destination: {
-          name: 'Cliente',
-          company: '',
-          email: '',
-          phone: '',
-          street: 'Dirección del cliente',
-          number: 'S/N',
-          district: '',
-          city: destination_dane_code,
-          state: '',
-          country: 'CO',
-          postalCode: destination_dane_code,
-          reference: ''
-        },
-        packages: [{
-          content: 'Productos naturales',
-          amount: 1,
-          type: 'box',
-          weight: Math.max(totalWeight, 0.5),
-          insurance: declaredValue,
-          declaredValue: declaredValue,
-          weightUnit: 'KG',
-          lengthUnit: 'CM',
-          dimensions: {
-            length: maxLength,
-            width: maxWidth,
-            height: Math.min(totalHeight, 50)
-          }
-        }],
-        shipment: {
-          carrier: 'all',
-          type: 1
-        },
-        settings: {
-          printFormat: 'PDF',
-          printSize: 'STOCK_4X6',
-          currency: 'COP'
-        }
-      })
+      body: JSON.stringify(requestBody)
     })
 
     const enviaData = await enviaResponse.json()
+    console.log('Envia.com response:', JSON.stringify(enviaData))
 
-    // Procesar respuesta de Envia.com
-    if (enviaData.data && enviaData.data.length > 0) {
-      const carriers = enviaData.data
-        .filter(option => option.totalPrice && option.totalPrice > 0)
+    // Procesar respuesta - puede ser un array de opciones
+    if (Array.isArray(enviaData) && enviaData.length > 0) {
+      const carriers = enviaData
+        .filter(option => option.price && option.price > 0)
         .map(option => ({
-          carrier: option.carrier_name || option.carrier || 'Transportadora',
-          service: option.service || option.serviceDescription || 'Estándar',
-          delivery_time: option.deliveryEstimate 
-            ? `${option.deliveryEstimate.min || '?'}-${option.deliveryEstimate.max || '?'} días hábiles`
-            : option.delivery_date || '3-7 días hábiles',
-          price: Math.round(option.totalPrice),
-          currency: 'COP',
-          logo: option.carrier_logo || '',
-          service_id: option.serviceId || option.service_id || ''
+          carrier: formatCarrierName(option.carrier),
+          service: option.service || 'Estándar',
+          delivery_time: option.days || option.delivery_time || '3-7 días hábiles',
+          price: Math.round(option.price),
+          currency: option.currency || 'COP',
+          service_id: option.service_id || ''
         }))
-        .sort((a, b) => a.price - b.price) // Ordenar por precio (más barato primero)
+        .sort((a, b) => a.price - b.price)
 
       if (carriers.length > 0) {
         return new Response(JSON.stringify({
@@ -152,9 +119,35 @@ export default async (req) => {
       }
     }
 
-    // Si la API no devuelve resultados, fallback
-    console.log('Envia.com response:', JSON.stringify(enviaData))
-    
+    // Si la respuesta tiene campo 'data' (otro formato posible)
+    if (enviaData.data && Array.isArray(enviaData.data) && enviaData.data.length > 0) {
+      const carriers = enviaData.data
+        .filter(option => (option.totalPrice || option.price) > 0)
+        .map(option => ({
+          carrier: formatCarrierName(option.carrier_name || option.carrier),
+          service: option.service || option.serviceDescription || 'Estándar',
+          delivery_time: option.days || option.deliveryEstimate 
+            ? `${option.deliveryEstimate?.min || '?'}-${option.deliveryEstimate?.max || '?'} días`
+            : '3-7 días hábiles',
+          price: Math.round(option.totalPrice || option.price),
+          currency: 'COP',
+          service_id: option.serviceId || option.service_id || ''
+        }))
+        .sort((a, b) => a.price - b.price)
+
+      if (carriers.length > 0) {
+        return new Response(JSON.stringify({
+          carriers: carriers,
+          fallback: false
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+    }
+
+    // Si no hay resultados, fallback
+    console.log('No carrier results found in response')
     return new Response(JSON.stringify({
       carriers: [{
         carrier: 'Envío estándar',
@@ -164,7 +157,7 @@ export default async (req) => {
         currency: 'COP'
       }],
       fallback: true,
-      message: 'No se encontraron opciones de envío para este destino'
+      message: 'No se encontraron opciones para este destino'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -181,10 +174,28 @@ export default async (req) => {
         currency: 'COP'
       }],
       fallback: true,
-      message: 'Error al cotizar, tarifa estándar aplicada'
+      message: 'Error al cotizar'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
   }
+}
+
+function formatCarrierName(name) {
+  if (!name) return 'Transportadora'
+  const names = {
+    'coordinadora': 'Coordinadora',
+    'serviEntrega': 'Servientrega',
+    'servientrega': 'Servientrega',
+    'interrapidisimo': 'Inter Rapidísimo',
+    'interRapidisimo': 'Inter Rapidísimo',
+    'tcc': 'TCC',
+    'envia': 'Envía',
+    'fedex': 'FedEx',
+    'dhl': 'DHL',
+    'deprisa': 'Deprisa',
+    'redServi': 'RedServi'
+  }
+  return names[name] || name.charAt(0).toUpperCase() + name.slice(1)
 }
