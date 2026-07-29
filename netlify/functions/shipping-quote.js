@@ -1,6 +1,6 @@
 // netlify/functions/shipping-quote.js
 // Cotiza envíos con múltiples transportadoras usando Envia.com API
-// Devuelve logo, nombre de servicio y tiempo estimado
+// UNA llamada por carrier en paralelo (docs: https://docs.envia.com/docs/ecommerce-checkout)
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -54,14 +54,6 @@ export default async (req) => {
       { name: 'XXL', length: 23, width: 18, height: 25, maxWeight: 3.0 },
       { name: 'MAX', length: 33, width: 27, height: 18, maxWeight: 6.0 },
     ]
-
-    // ─── Logos de transportadoras colombianas ───
-    const CARRIER_LOGOS = {
-      'coordinadora': 'https://cms.envia.com/uploads/coordinadora_589c4fe94f.svg',
-      'servientrega': 'https://cms.envia.com/uploads/servientrega_7d25f21c58.svg',
-      'tcc': 'https://cms.envia.com/uploads/tcc_52eb3f9acf.svg',
-      'interrapidisimo': 'https://cms.envia.com/uploads/interrapidisimo_0de1dc1dea.svg',
-    }
 
     // ─── Calcular peso ───
     let totalWeight = 0
@@ -172,6 +164,7 @@ export default async (req) => {
     // ─── Recopilar opciones ───
     const allCarriers = []
     const seenKeys = new Set()
+    let loggedFirst = false
 
     for (const result of results) {
       if (result.status !== 'fulfilled' || !result.value.success) continue
@@ -181,25 +174,35 @@ export default async (req) => {
         : []
 
       for (const option of options) {
+        // ── LOG TEMPORAL: ver todos los campos de la primera opción ──
+        if (!loggedFirst) {
+          console.log('CAMPOS DISPONIBLES:', Object.keys(option).join(', '))
+          console.log('PRIMERA OPCION:', JSON.stringify(option).substring(0, 800))
+          loggedFirst = true
+        }
+
         const price = parseFloat(option.totalPrice || option.price || 0)
         if (price <= 0) continue
 
         const carrierName = formatCarrierName(option.carrier || carrier)
         const serviceName = formatServiceName(option.service || option.serviceDescription || '')
-        const deliveryTime = option.deliveryEstimate || option.days || '3-5 días hábiles'
 
-        // Deduplicar: mismo carrier + mismo precio = misma opción
+        // Deduplicar por carrier + precio
         const key = `${carrierName}-${Math.round(price)}`
         if (seenKeys.has(key)) continue
         seenKeys.add(key)
 
+        // Intentar obtener el logo de la respuesta de la API
+        const logo = option.img || option.carrierLogoURL || option.carrier_logo
+          || option.logo || option.carrierLogo || option.image || null
+
         allCarriers.push({
           carrier: carrierName,
           service: serviceName,
-          delivery_time: deliveryTime,
+          delivery_time: option.deliveryEstimate || option.days || '3-5 días hábiles',
           price: Math.round(price),
           currency: option.currency || 'COP',
-logo: option.img || option.carrierLogoURL || option.carrier_logo || null,
+          logo: logo,
           service_id: option.service_id || option.serviceId || ''
         })
       }
@@ -208,7 +211,6 @@ logo: option.img || option.carrierLogoURL || option.carrier_logo || null,
     allCarriers.sort((a, b) => a.price - b.price)
 
     if (allCarriers.length > 0) {
-      // Marcar la opción más económica
       allCarriers[0].recommended = true
       return new Response(JSON.stringify({
         carriers: allCarriers,
@@ -281,6 +283,5 @@ function formatServiceName(service) {
   if (lower.includes('mensajeria')) return 'Mensajería'
   if (lower.includes('domicilio')) return 'Domicilio'
   if (lower.includes('standard') || lower.includes('estandar')) return 'Estándar'
-  // Capitalizar primera letra
   return service.charAt(0).toUpperCase() + service.slice(1)
 }
