@@ -1,7 +1,7 @@
 // netlify/functions/shipping-quote.js
 // Cotiza envíos con múltiples transportadoras usando Envia.com API
-// Formato correcto para Colombia con códigos DANE
-// Pesos y cajas reales de Fortuna Natural
+// IMPORTANTE: La API requiere UNA llamada por carrier (en paralelo)
+// Docs: https://docs.envia.com/docs/ecommerce-checkout
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -38,17 +38,16 @@ export default async (req) => {
 
     // ─── Pesos reales de los productos (en kg) ───
     const PRODUCT_WEIGHTS = {
-      'esplendor': 0.026,        // 26g
-      'biodrenante': 0.125,      // 125g
+      'esplendor': 0.026,
+      'biodrenante': 0.125,
       'biodrenantes': 0.125,
-      'plata coloidal': 0.210,   // 210g
+      'plata coloidal': 0.210,
       'plata_coloidal': 0.210,
       'coloidal': 0.210,
-      'default': 0.125           // Peso promedio si no se reconoce
+      'default': 0.125
     }
 
-    // ─── Cajas disponibles (de menor a mayor) ───
-    // Coinciden con los paquetes guardados en Envia.com
+    // ─── Cajas disponibles ───
     const BOXES = [
       { name: 'XS',  length: 17, width: 8,  height: 10, maxWeight: 0.3 },
       { name: 'S',   length: 17, width: 9,  height: 9,  maxWeight: 0.5 },
@@ -59,7 +58,7 @@ export default async (req) => {
       { name: 'MAX', length: 33, width: 27, height: 18, maxWeight: 6.0 },
     ]
 
-    // ─── Calcular peso total del pedido ───
+    // ─── Calcular peso total ───
     let totalWeight = 0
     if (items && items.length > 0) {
       items.forEach(item => {
@@ -75,14 +74,12 @@ export default async (req) => {
         totalWeight += unitWeight * qty
       })
     } else {
-      totalWeight = 0.151 // 1 Esplendor + 1 Biodrenante
+      totalWeight = 0.151
     }
-
-    // Agregar peso del empaque (~100g)
-    totalWeight += 0.1
+    totalWeight += 0.1 // empaque
     totalWeight = Math.round(totalWeight * 100) / 100
 
-    // ─── Seleccionar caja adecuada ───
+    // ─── Seleccionar caja ───
     let selectedBox = BOXES[BOXES.length - 1]
     for (const box of BOXES) {
       if (totalWeight <= box.maxWeight) {
@@ -92,8 +89,7 @@ export default async (req) => {
     }
 
     // ─── Códigos DANE ───
-    const originDane = '05001000' // Medellín (8 dígitos)
-
+    const originDane = '05001000'
     let destDane = destination_dane_code || ''
     if (destDane.length === 5) destDane = destDane + '000'
 
@@ -108,96 +104,132 @@ export default async (req) => {
     }
     const destStateCode = stateMap[destDane.substring(0, 2)] || 'CU'
 
-    // ─── Request body para Envia.com (Colombia) ───
-    // city y postalCode = código DANE (iguales)
-    const requestBody = {
-      origin: {
-        name: 'Fortuna Natural',
-        company: 'Fortuna Natural',
-        email: 'soynicogil@gmail.com',
-        phone: '3000000000',
-        street: 'Calle 51 # 82-190',
-        city: originDane,
-        state: 'AN',
-        country: 'CO',
-        postalCode: originDane
+    // ─── Datos de origen y destino ───
+    const origin = {
+      name: 'Fortuna Natural',
+      company: 'Fortuna Natural',
+      email: 'soynicogil@gmail.com',
+      phone: '3000000000',
+      street: 'Calle 51 # 82-190',
+      city: originDane,
+      state: 'AN',
+      country: 'CO',
+      postalCode: originDane
+    }
+
+    const destination = {
+      name: 'Cliente',
+      phone: '3000000000',
+      street: 'Dirección por confirmar',
+      city: destDane,
+      state: destStateCode,
+      country: 'CO',
+      postalCode: destDane
+    }
+
+    const packages = [{
+      content: 'Productos naturales',
+      amount: 1,
+      type: 'box',
+      weight: Math.max(totalWeight, 0.5),
+      weightUnit: 'KG',
+      lengthUnit: 'CM',
+      dimensions: {
+        length: selectedBox.length,
+        width: selectedBox.width,
+        height: selectedBox.height
       },
-      destination: {
-        name: 'Cliente',
-        phone: '3000000000',
-        street: 'Dirección por confirmar',
-        city: destDane,
-        state: destStateCode,
-        country: 'CO',
-        postalCode: destDane
-      },
-      packages: [{
-        content: 'Productos naturales',
-        amount: 1,
-        type: 'box',
-        weight: Math.max(totalWeight, 0.5),
-        weightUnit: 'KG',
-        lengthUnit: 'CM',
-        dimensions: {
-          length: selectedBox.length,
-          width: selectedBox.width,
-          height: selectedBox.height
+      declaredValue: 50000
+    }]
+
+    console.log(`Cotizando: ${destDane} | Peso: ${totalWeight}kg | Caja: ${selectedBox.name}`)
+
+    // ─── Transportadoras activas en tu cuenta de Envia.com ───
+    // (Las que aparecen en tu prueba manual)
+    const CARRIERS = ['coordinadora', 'servientrega', 'tcc', 'interrapidisimo']
+
+    // ─── Llamar a la API UNA VEZ POR CARRIER en paralelo ───
+    // Docs: "The rate endpoint accepts one carrier per request,
+    //        so call it in parallel for speed."
+    const ratePromises = CARRIERS.map(carrier =>
+      fetch('https://api.envia.com/ship/rate/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ENVIA_API_KEY}`
         },
-        declaredValue: 50000
-      }],
-      shipment: {
-        type: 1
-      }
-    }
-
-    console.log('Envia.com request:', JSON.stringify(requestBody))
-    console.log(`Peso: ${totalWeight}kg | Caja: ${selectedBox.name} (${selectedBox.length}x${selectedBox.width}x${selectedBox.height})`)
-
-    const enviaResponse = await fetch('https://api.envia.com/ship/rate/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ENVIA_API_KEY}`
-      },
-      body: JSON.stringify(requestBody)
-    })
-
-    const enviaData = await enviaResponse.json()
-    console.log('Envia.com status:', enviaResponse.status)
-    console.log('Envia.com response:', JSON.stringify(enviaData))
-
-    // Respuesta puede ser array directo o envuelto en .data
-    const rawOptions = Array.isArray(enviaData) ? enviaData
-      : (enviaData.data && Array.isArray(enviaData.data)) ? enviaData.data
-      : []
-
-    if (rawOptions.length > 0) {
-      const carriers = rawOptions
-        .filter(option => option.price && option.price > 0)
-        .map(option => ({
-          carrier: formatCarrierName(option.carrier),
-          service: option.service || 'Estándar',
-          delivery_time: option.days || option.delivery_time || option.deliveryEstimate || '3-7 días hábiles',
-          price: Math.round(option.price || option.totalPrice || option.basePrice || 0),
-          currency: option.currency || 'COP',
-          service_id: option.service_id || option.serviceId || ''
-        }))
-        .sort((a, b) => a.price - b.price)
-
-      if (carriers.length > 0) {
-        return new Response(JSON.stringify({
-          carriers,
-          fallback: false,
-          debug: { weight: totalWeight, box: selectedBox.name, destDane }
-        }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
+        body: JSON.stringify({
+          origin,
+          destination,
+          packages,
+          shipment: { type: 1, carrier }
         })
+      })
+      .then(res => res.json())
+      .then(data => ({ carrier, data, success: true }))
+      .catch(err => ({ carrier, error: err.message, success: false }))
+    )
+
+    const results = await Promise.allSettled(ratePromises)
+
+    console.log('Envia.com results:', JSON.stringify(
+      results.map(r => ({
+        carrier: r.value?.carrier,
+        success: r.value?.success,
+        hasData: !!(r.value?.data?.data?.length)
+      }))
+    ))
+
+    // ─── Recopilar todas las opciones ───
+    const allCarriers = []
+
+    for (const result of results) {
+      if (result.status !== 'fulfilled' || !result.value.success) continue
+
+      const { carrier, data } = result.value
+
+      // La respuesta puede tener las opciones en data.data (array)
+      const options = Array.isArray(data) ? data
+        : (data.data && Array.isArray(data.data)) ? data.data
+        : []
+
+      for (const option of options) {
+        if (option.totalPrice && parseFloat(option.totalPrice) > 0) {
+          allCarriers.push({
+            carrier: formatCarrierName(option.carrier || carrier),
+            service: option.service || option.serviceDescription || 'Estándar',
+            delivery_time: option.deliveryEstimate || option.days || '3-7 días hábiles',
+            price: Math.round(parseFloat(option.totalPrice)),
+            currency: option.currency || 'COP',
+            service_id: option.service_id || option.serviceId || ''
+          })
+        }
       }
     }
 
-    // Fallback
-    console.log('Envia.com: sin opciones válidas')
+    // Ordenar por precio
+    allCarriers.sort((a, b) => a.price - b.price)
+
+    if (allCarriers.length > 0) {
+      console.log(`✅ ${allCarriers.length} opciones encontradas`)
+      return new Response(JSON.stringify({
+        carriers: allCarriers,
+        fallback: false
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    // ─── Fallback si ningún carrier devolvió opciones ───
+    console.log('⚠️ Ningún carrier devolvió opciones')
+    // Log de debugging
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        console.log(`  ${result.value.carrier}:`, JSON.stringify(result.value.data).substring(0, 200))
+      }
+    }
+
     return new Response(JSON.stringify({
       carriers: [{
         carrier: 'Envío estándar',
@@ -207,7 +239,7 @@ export default async (req) => {
         currency: 'COP'
       }],
       fallback: true,
-      debug: { status: enviaResponse.status, response: enviaData, weight: totalWeight, box: selectedBox.name, destDane }
+      message: 'Cotización no disponible'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
