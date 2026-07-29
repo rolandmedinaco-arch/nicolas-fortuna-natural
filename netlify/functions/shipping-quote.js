@@ -1,6 +1,7 @@
 // netlify/functions/shipping-quote.js
 // Cotiza envíos con múltiples transportadoras usando Envia.com API
 // Formato correcto para Colombia con códigos DANE
+// Pesos y cajas reales de Fortuna Natural
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -28,59 +29,129 @@ export default async (req) => {
           currency: 'COP'
         }],
         fallback: true,
-        message: 'API key no configurada'
+        message: 'Tarifa plana (API key no configurada)'
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
     }
 
-    // Calcular peso y dimensiones
+    // ─── Pesos reales de los productos (en kg) ───
+    const PRODUCT_WEIGHTS = {
+      'esplendor': 0.026,        // 26g
+      'biodrenante': 0.125,      // 125g
+      'biodrenantes': 0.125,
+      'plata coloidal': 0.210,   // 210g
+      'plata_coloidal': 0.210,
+      'coloidal': 0.210,
+      'default': 0.125           // Peso promedio si no se reconoce
+    }
+
+    // ─── Cajas disponibles (de menor a mayor) ───
+    // Coinciden con los paquetes guardados en Envia.com
+    const BOXES = [
+      { name: 'XS',  length: 17, width: 8,  height: 10, maxWeight: 0.3 },
+      { name: 'S',   length: 17, width: 9,  height: 9,  maxWeight: 0.5 },
+      { name: 'M',   length: 17, width: 8,  height: 14, maxWeight: 0.7 },
+      { name: 'L',   length: 17, width: 9,  height: 15, maxWeight: 1.0 },
+      { name: 'XL',  length: 30, width: 15, height: 10, maxWeight: 2.0 },
+      { name: 'XXL', length: 23, width: 18, height: 25, maxWeight: 3.0 },
+      { name: 'MAX', length: 33, width: 27, height: 18, maxWeight: 6.0 },
+    ]
+
+    // ─── Calcular peso total del pedido ───
     let totalWeight = 0
-    let totalHeight = 0
     if (items && items.length > 0) {
       items.forEach(item => {
         const qty = item.quantity || 1
-        totalWeight += (item.weight || 0.5) * qty
-        totalHeight += (item.height || 10) * qty
+        const itemName = (item.name || item.slug || '').toLowerCase()
+        let unitWeight = PRODUCT_WEIGHTS['default']
+        for (const [key, weight] of Object.entries(PRODUCT_WEIGHTS)) {
+          if (key !== 'default' && itemName.includes(key)) {
+            unitWeight = weight
+            break
+          }
+        }
+        totalWeight += unitWeight * qty
       })
     } else {
-      totalWeight = 1
-      totalHeight = 15
+      totalWeight = 0.151 // 1 Esplendor + 1 Biodrenante
     }
 
-    // Origen: Medellín (DANE 05001)
-    const originDane = '05001'
+    // Agregar peso del empaque (~100g)
+    totalWeight += 0.1
+    totalWeight = Math.round(totalWeight * 100) / 100
 
-    // Formato correcto para Colombia
+    // ─── Seleccionar caja adecuada ───
+    let selectedBox = BOXES[BOXES.length - 1]
+    for (const box of BOXES) {
+      if (totalWeight <= box.maxWeight) {
+        selectedBox = box
+        break
+      }
+    }
+
+    // ─── Códigos DANE ───
+    const originDane = '05001000' // Medellín (8 dígitos)
+
+    let destDane = destination_dane_code || ''
+    if (destDane.length === 5) destDane = destDane + '000'
+
+    const stateMap = {
+      '05': 'AN', '08': 'AT', '11': 'DC', '13': 'BL', '15': 'BY',
+      '17': 'CL', '18': 'CQ', '19': 'CA', '20': 'CE', '23': 'CO',
+      '25': 'CU', '27': 'CH', '41': 'HU', '44': 'LG', '47': 'MA',
+      '50': 'ME', '52': 'NA', '54': 'NS', '63': 'QU', '66': 'RI',
+      '68': 'SA', '70': 'SU', '73': 'TO', '76': 'VC', '81': 'AR',
+      '85': 'CS', '86': 'PU', '88': 'SAP', '91': 'AM', '94': 'GN',
+      '95': 'GV', '97': 'VA', '99': 'VI'
+    }
+    const destStateCode = stateMap[destDane.substring(0, 2)] || 'CU'
+
+    // ─── Request body para Envia.com (Colombia) ───
+    // city y postalCode = código DANE (iguales)
     const requestBody = {
       origin: {
+        name: 'Fortuna Natural',
+        company: 'Fortuna Natural',
+        email: 'soynicogil@gmail.com',
+        phone: '3000000000',
+        street: 'Calle 51 # 82-190',
+        city: originDane,
+        state: 'AN',
         country: 'CO',
-        postal_code: originDane
+        postalCode: originDane
       },
       destination: {
+        name: 'Cliente',
+        phone: '3000000000',
+        street: 'Dirección por confirmar',
+        city: destDane,
+        state: destStateCode,
         country: 'CO',
-        postal_code: destination_dane_code
+        postalCode: destDane
       },
       packages: [{
-        weight: Math.max(Math.round(totalWeight * 10) / 10, 0.5),
-        height: Math.min(Math.round(totalHeight), 50),
-        width: 20,
-        length: 20,
-        type: 'box'
+        content: 'Productos naturales',
+        amount: 1,
+        type: 'box',
+        weight: Math.max(totalWeight, 0.5),
+        weightUnit: 'KG',
+        lengthUnit: 'CM',
+        dimensions: {
+          length: selectedBox.length,
+          width: selectedBox.width,
+          height: selectedBox.height
+        },
+        declaredValue: 50000
       }],
-      carriers: [
-        'coordinadora',
-        'serviEntrega',
-        'interrapidisimo',
-        'tcc',
-        'envia'
-      ],
-      insurance: 0,
-      type: 'National'
+      shipment: {
+        type: 1
+      }
     }
 
     console.log('Envia.com request:', JSON.stringify(requestBody))
+    console.log(`Peso: ${totalWeight}kg | Caja: ${selectedBox.name} (${selectedBox.length}x${selectedBox.width}x${selectedBox.height})`)
 
     const enviaResponse = await fetch('https://api.envia.com/ship/rate/', {
       method: 'POST',
@@ -92,26 +163,32 @@ export default async (req) => {
     })
 
     const enviaData = await enviaResponse.json()
+    console.log('Envia.com status:', enviaResponse.status)
     console.log('Envia.com response:', JSON.stringify(enviaData))
 
-    // Procesar respuesta - puede ser un array de opciones
-    if (Array.isArray(enviaData) && enviaData.length > 0) {
-      const carriers = enviaData
+    // Respuesta puede ser array directo o envuelto en .data
+    const rawOptions = Array.isArray(enviaData) ? enviaData
+      : (enviaData.data && Array.isArray(enviaData.data)) ? enviaData.data
+      : []
+
+    if (rawOptions.length > 0) {
+      const carriers = rawOptions
         .filter(option => option.price && option.price > 0)
         .map(option => ({
           carrier: formatCarrierName(option.carrier),
           service: option.service || 'Estándar',
-          delivery_time: option.days || option.delivery_time || '3-7 días hábiles',
-          price: Math.round(option.price),
+          delivery_time: option.days || option.delivery_time || option.deliveryEstimate || '3-7 días hábiles',
+          price: Math.round(option.price || option.totalPrice || option.basePrice || 0),
           currency: option.currency || 'COP',
-          service_id: option.service_id || ''
+          service_id: option.service_id || option.serviceId || ''
         }))
         .sort((a, b) => a.price - b.price)
 
       if (carriers.length > 0) {
         return new Response(JSON.stringify({
-          carriers: carriers,
-          fallback: false
+          carriers,
+          fallback: false,
+          debug: { weight: totalWeight, box: selectedBox.name, destDane }
         }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
@@ -119,35 +196,8 @@ export default async (req) => {
       }
     }
 
-    // Si la respuesta tiene campo 'data' (otro formato posible)
-    if (enviaData.data && Array.isArray(enviaData.data) && enviaData.data.length > 0) {
-      const carriers = enviaData.data
-        .filter(option => (option.totalPrice || option.price) > 0)
-        .map(option => ({
-          carrier: formatCarrierName(option.carrier_name || option.carrier),
-          service: option.service || option.serviceDescription || 'Estándar',
-          delivery_time: option.days || option.deliveryEstimate 
-            ? `${option.deliveryEstimate?.min || '?'}-${option.deliveryEstimate?.max || '?'} días`
-            : '3-7 días hábiles',
-          price: Math.round(option.totalPrice || option.price),
-          currency: 'COP',
-          service_id: option.serviceId || option.service_id || ''
-        }))
-        .sort((a, b) => a.price - b.price)
-
-      if (carriers.length > 0) {
-        return new Response(JSON.stringify({
-          carriers: carriers,
-          fallback: false
-        }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        })
-      }
-    }
-
-    // Si no hay resultados, fallback
-    console.log('No carrier results found in response')
+    // Fallback
+    console.log('Envia.com: sin opciones válidas')
     return new Response(JSON.stringify({
       carriers: [{
         carrier: 'Envío estándar',
@@ -157,14 +207,14 @@ export default async (req) => {
         currency: 'COP'
       }],
       fallback: true,
-      message: 'No se encontraron opciones para este destino'
+      debug: { status: enviaResponse.status, response: enviaData, weight: totalWeight, box: selectedBox.name, destDane }
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
 
-  } catch (err) {
-    console.error('Shipping quote error:', err)
+  } catch (error) {
+    console.error('Shipping quote error:', error)
     return new Response(JSON.stringify({
       carriers: [{
         carrier: 'Envío estándar',
