@@ -37,16 +37,12 @@ export default async (req) => {
       discountAmount,
       shippingCost,
       total,
-      shippingMethod
+      shippingMethod,
+      // ─── NUEVOS: datos del carrier seleccionado ───
+      shippingCarrierCode,
+      shippingServiceCode,
+      destinationDane,
     } = body
-
-    // Validación básica
-    if (!email || !items || items.length === 0) {
-      return new Response(JSON.stringify({ error: 'Email y productos son requeridos' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
 
     // Insertar pedido en Supabase
     const { data, error } = await supabase
@@ -70,31 +66,37 @@ export default async (req) => {
         total: total,
         shipping_method: shippingMethod || 'standard',
         status: 'pending',
-        payment_status: 'pending'
+        payment_status: 'pending',
+        // ─── NUEVOS: para generación automática de guía ───
+        shipping_carrier_code: shippingCarrierCode || null,
+        shipping_service_code: shippingServiceCode || null,
+        destination_dane: destinationDane || null,
+        shipping_status: 'pending',
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Supabase error:', error)
-      return new Response(JSON.stringify({ error: 'Error guardando pedido' }), {
+      console.error('Error creating order:', error)
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       })
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      order_id: data.id,
-      message: 'Pedido creado exitosamente'
+    console.log('Order created:', data.id)
+
+    return new Response(JSON.stringify({
+      success: true,
+      order_id: data.id
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
 
-  } catch (err) {
-    console.error('Server error:', err)
-    return new Response(JSON.stringify({ error: 'Error interno del servidor' }), {
+  } catch (error) {
+    console.error('Create order error:', error)
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })

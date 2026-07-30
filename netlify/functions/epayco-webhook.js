@@ -1,6 +1,7 @@
 // netlify/functions/epayco-webhook.js
 // Webhook que ePayco llama cuando se confirma un pago
 // Actualiza el estado del pedido en Supabase
+// NUEVO: Genera guía automáticamente cuando el pago es aprobado
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -21,17 +22,17 @@ export default async (req) => {
     }
 
     const {
-      x_ref_payco,        // Referencia ePayco
-      x_transaction_id,   // ID de transacción
-      x_amount,           // Monto pagado
-      x_currency_code,    // Moneda (COP)
-      x_response,         // Respuesta: Aceptada, Rechazada, Pendiente
-      x_approval_code,    // Código de aprobación
-      x_franchise,        // Franquicia (Visa, Mastercard, PSE, etc.)
-      x_id_invoice,       // ID de factura (nuestro order_id)
-      x_description,      // Descripción del pago
-      x_extra1,           // Campo extra (order_id)
-      x_cod_response      // Código: 1=Aceptada, 2=Rechazada, 3=Pendiente, 4=Fallida
+      x_ref_payco,
+      x_transaction_id,
+      x_amount,
+      x_currency_code,
+      x_response,
+      x_approval_code,
+      x_franchise,
+      x_id_invoice,
+      x_description,
+      x_extra1,
+      x_cod_response
     } = params
 
     console.log('ePayco webhook received:', {
@@ -46,21 +47,23 @@ export default async (req) => {
     let orderStatus = 'pending'
 
     switch (String(x_cod_response)) {
-      case '1': // Aceptada
+      case '1':
         paymentStatus = 'approved'
         orderStatus = 'paid'
         break
-      case '2': // Rechazada
+      case '2':
         paymentStatus = 'rejected'
-        orderStatus = 'cancelled'
+        orderStatus = 'rejected'
         break
-      case '3': // Pendiente
+      case '3':
         paymentStatus = 'pending'
         orderStatus = 'pending'
         break
-      case '4': // Fallida
+      case '4':
         paymentStatus = 'failed'
-        orderStatus = 'cancelled'
+        orderStatus = 'failed'
+        break
+      default:
         break
     }
 
@@ -77,7 +80,7 @@ export default async (req) => {
           epayco_response: x_response,
           payment_method: x_franchise,
           payment_status: paymentStatus,
-          status: orderStatus
+          status: orderStatus,
         })
         .eq('id', orderId)
         .select()
@@ -86,16 +89,47 @@ export default async (req) => {
         console.error('Error updating order:', error)
       } else {
         console.log('Order updated successfully:', data)
+
+        // ─── NUEVO: Generar guía automáticamente si el pago fue aprobado ───
+        if (paymentStatus === 'approved' && data && data.length > 0) {
+          const order = data[0]
+
+          // Solo generar si tiene carrier seleccionado y no tiene guía aún
+          if (order.shipping_carrier_code && !order.tracking_number) {
+            console.log('🚚 Generando guía automática para pedido:', orderId)
+
+            try {
+              // Llamar a la función generate-label
+              const labelRes = await fetch(
+                `${new URL(req.url).origin}/.netlify/functions/generate-label`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ order_id: orderId })
+                }
+              )
+              const labelData = await labelRes.json()
+
+              if (labelData.success) {
+                console.log('✅ Guía generada:', labelData.tracking_number)
+              } else {
+                console.error('⚠️ Error generando guía:', labelData.error || labelData.details)
+              }
+            } catch (labelError) {
+              console.error('❌ Error llamando generate-label:', labelError)
+              // No falla el webhook — la guía se puede generar manualmente después
+            }
+          }
+        }
       }
     } else if (x_ref_payco) {
       // Si no tenemos order_id, buscar por referencia ePayco
-      const { data: existing } = await supabase
+      const { data: existingOrders } = await supabase
         .from('orders')
         .select('id')
         .eq('epayco_ref', x_ref_payco)
-        .single()
 
-      if (existing) {
+      if (existingOrders && existingOrders.length > 0) {
         await supabase
           .from('orders')
           .update({
@@ -103,21 +137,20 @@ export default async (req) => {
             epayco_response: x_response,
             payment_method: x_franchise,
             payment_status: paymentStatus,
-            status: orderStatus
+            status: orderStatus,
           })
-          .eq('id', existing.id)
+          .eq('epayco_ref', x_ref_payco)
       }
     }
 
-    // ePayco espera una respuesta 200
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ status: 'ok' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
 
-  } catch (err) {
-    console.error('Webhook error:', err)
-    return new Response(JSON.stringify({ error: 'Webhook error' }), {
+  } catch (error) {
+    console.error('Webhook error:', error)
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })

@@ -435,6 +435,9 @@ async function handlePay() {
         shippingCost: shippingCost.value,
         total: grandTotal.value,
         shippingMethod: form.value.shippingMethod
+               shippingCarrierCode: selectedCarrier.value?.carrier || null,
+        shippingServiceCode: selectedCarrier.value?.service_id || selectedCarrier.value?.service || null,
+        destinationDane: getDaneCode(form.value.city, form.value.department) || null,
       })
     })
     const data = await res.json()
