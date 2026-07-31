@@ -263,10 +263,10 @@
 
           <!-- Totals -->
           <div class="summary-totals">
-            <div class="summary-row">
-              <span>Subtotal</span>
-              <span>{{ formatPrice(subtotal) }}</span>
-            </div>
+<div class="summary-row">
+  <span>Envío</span>
+  <span style="color: #166534; font-weight: 600;">Gratis 🎉</span>
+</div>
             <div v-if="discountPercent > 0" class="summary-row summary-row-discount">
               <span>Descuento ({{ discountPercent }}%)</span>
               <span>-{{ formatPrice(discountAmount) }}</span>
@@ -332,7 +332,7 @@ const filteredCities = computed(() => {
   return getCitiesForDepartment(form.value.department)
 })
 
-const grandTotal = computed(() => total.value + shippingCost.value)
+const grandTotal = computed(() => total.value)
 
 const isFormValid = computed(() => {
   const f = form.value
