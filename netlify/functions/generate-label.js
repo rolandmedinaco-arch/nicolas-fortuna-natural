@@ -46,7 +46,7 @@ export default async (req) => {
 
     const order = orders[0]
 
-    // Verificar que el pedido está pagado y no tiene guía
+    // Verificar que no tiene guía ya
     if (order.tracking_number) {
       console.log('Guía ya generada para pedido:', order_id)
       return new Response(JSON.stringify({
@@ -62,8 +62,6 @@ export default async (req) => {
 
     // ─── 2. Preparar datos para Envia.com ───
     const originDane = '05001000'
-
-    // DANE del destino — guardado en el pedido
     let destDane = order.destination_dane || ''
     if (destDane.length === 5) destDane = destDane + '000'
 
@@ -78,33 +76,24 @@ export default async (req) => {
     }
     const destStateCode = stateMap[destDane.substring(0, 2)] || 'CU'
 
-    // Calcular peso del pedido
     const PRODUCT_WEIGHTS = {
-      'esplendor': 0.026,
-      'biodrenante': 0.125,
-      'biodrenantes': 0.125,
-      'plata coloidal': 0.210,
-      'coloidal': 0.210,
-      'default': 0.125
+      'esplendor': 0.026, 'biodrenante': 0.125, 'biodrenantes': 0.125,
+      'plata coloidal': 0.210, 'coloidal': 0.210, 'default': 0.125
     }
 
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || [])
-    let totalWeight = 0.1 // empaque
+    let totalWeight = 0.1
     items.forEach(item => {
       const qty = item.quantity || 1
       const itemName = (item.name || '').toLowerCase()
       let unitWeight = PRODUCT_WEIGHTS['default']
       for (const [key, weight] of Object.entries(PRODUCT_WEIGHTS)) {
-        if (key !== 'default' && itemName.includes(key)) {
-          unitWeight = weight
-          break
-        }
+        if (key !== 'default' && itemName.includes(key)) { unitWeight = weight; break }
       }
       totalWeight += unitWeight * qty
     })
     totalWeight = Math.max(Math.round(totalWeight * 100) / 100, 0.5)
 
-    // Seleccionar caja
     const BOXES = [
       { length: 17, width: 8,  height: 10, maxWeight: 0.3 },
       { length: 17, width: 9,  height: 9,  maxWeight: 0.5 },
@@ -115,14 +104,11 @@ export default async (req) => {
       { length: 33, width: 27, height: 18, maxWeight: 6.0 },
     ]
     let box = BOXES[BOXES.length - 1]
-    for (const b of BOXES) {
-      if (totalWeight <= b.maxWeight) { box = b; break }
-    }
+    for (const b of BOXES) { if (totalWeight <= b.maxWeight) { box = b; break } }
 
-    // Descripción del contenido
     const contentDesc = items.map(i => `${i.name} x${i.quantity || 1}`).join(', ')
 
-    // ─── 3. Llamar a Envia.com para generar la guía ───
+    // ─── 3. Llamar a Envia.com ───
     const labelBody = {
       origin: {
         name: 'Fortuna Natural',
@@ -136,11 +122,11 @@ export default async (req) => {
         postalCode: originDane
       },
       destination: {
-        name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Cliente',
-        email: order.email || '',
-        phone: order.phone || '3000000000',
-        street: order.address || 'Dirección por confirmar',
-        street2: order.address_extra || '',
+        name: `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim() || 'Cliente',
+        email: order.customer_email || '',
+        phone: order.customer_phone || '3000000000',
+        street: order.shipping_address || 'Dirección por confirmar',
+        street2: order.shipping_address_extra || '',
         city: destDane,
         state: destStateCode,
         country: 'CO',
@@ -153,11 +139,7 @@ export default async (req) => {
         weight: totalWeight,
         weightUnit: 'KG',
         lengthUnit: 'CM',
-        dimensions: {
-          length: box.length,
-          width: box.width,
-          height: box.height
-        },
+        dimensions: { length: box.length, width: box.width, height: box.height },
         declaredValue: order.total || 50000,
         insurance: 0
       }],
@@ -174,7 +156,6 @@ export default async (req) => {
     }
 
     console.log('Generando guía para pedido:', order_id)
-    console.log('Carrier:', order.shipping_carrier_code, '| Service:', order.shipping_service_code)
 
     const enviaRes = await fetch('https://api.envia.com/ship/generate/', {
       method: 'POST',
@@ -202,7 +183,6 @@ export default async (req) => {
 
     if (!trackingNumber) {
       console.error('No se pudo generar guía:', JSON.stringify(enviaData))
-      // Guardar el error en Supabase para revisión manual
       await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order_id}`, {
         method: 'PATCH',
         headers: {

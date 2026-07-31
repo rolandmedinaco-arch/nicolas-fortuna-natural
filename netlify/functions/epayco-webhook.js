@@ -1,7 +1,6 @@
 // netlify/functions/epayco-webhook.js
 // Webhook que ePayco llama cuando se confirma un pago
-// Actualiza el estado del pedido en Supabase
-// NUEVO: Genera guía automáticamente cuando el pago es aprobado
+// Actualiza estado → Genera guía → Envía emails automáticos
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -69,6 +68,7 @@ export default async (req) => {
 
     // Buscar el pedido por order_id o por referencia ePayco
     const orderId = x_extra1 || x_id_invoice
+    const baseUrl = new URL(req.url).origin
 
     if (orderId) {
       // Actualizar pedido existente
@@ -90,18 +90,23 @@ export default async (req) => {
       } else {
         console.log('Order updated successfully:', data)
 
-        // ─── NUEVO: Generar guía automáticamente si el pago fue aprobado ───
+        // ─── Si el pago fue APROBADO ───
         if (paymentStatus === 'approved' && data && data.length > 0) {
           const order = data[0]
 
-          // Solo generar si tiene carrier seleccionado y no tiene guía aún
+          // 1. Enviar email de confirmación al cliente
+          await sendEmail(baseUrl, 'order_confirmation', order)
+
+          // 2. Enviar notificación al admin
+          await sendEmail(baseUrl, 'admin_notification', order)
+
+          // 3. Generar guía automáticamente
           if (order.shipping_carrier_code && !order.tracking_number) {
             console.log('🚚 Generando guía automática para pedido:', orderId)
 
             try {
-              // Llamar a la función generate-label
               const labelRes = await fetch(
-                `${new URL(req.url).origin}/.netlify/functions/generate-label`,
+                `${baseUrl}/.netlify/functions/generate-label`,
                 {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -112,12 +117,23 @@ export default async (req) => {
 
               if (labelData.success) {
                 console.log('✅ Guía generada:', labelData.tracking_number)
+
+                // 4. Enviar email de despacho al cliente con tracking
+                // Obtener el pedido actualizado con tracking
+                const { data: updatedOrder } = await supabase
+                  .from('orders')
+                  .select()
+                  .eq('id', orderId)
+                  .single()
+
+                if (updatedOrder) {
+                  await sendEmail(baseUrl, 'shipment_notification', updatedOrder)
+                }
               } else {
                 console.error('⚠️ Error generando guía:', labelData.error || labelData.details)
               }
             } catch (labelError) {
               console.error('❌ Error llamando generate-label:', labelError)
-              // No falla el webhook — la guía se puede generar manualmente después
             }
           }
         }
@@ -154,5 +170,24 @@ export default async (req) => {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
+  }
+}
+
+// ─── Helper: llamar a send-email ───
+async function sendEmail(baseUrl, type, order) {
+  try {
+    const res = await fetch(`${baseUrl}/.netlify/functions/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, order })
+    })
+    const data = await res.json()
+    if (data.success) {
+      console.log(`📧 Email [${type}] enviado correctamente`)
+    } else {
+      console.error(`📧 Error email [${type}]:`, data.error)
+    }
+  } catch (err) {
+    console.error(`📧 Error enviando [${type}]:`, err.message)
   }
 }
