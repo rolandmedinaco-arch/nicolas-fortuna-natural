@@ -178,7 +178,39 @@ export const citiesByDepartment = {
     { name: 'Buga', dane: '76111' },
     { name: 'Yumbo', dane: '76892' },
     { name: 'Jamundí', dane: '76364' }
-  ]
+  ],
+  // ... después de la ] de VC (línea 181), agregar una coma y:
+    AM: [
+      { name: 'Leticia', dane: '91001' }
+    ],
+    AR: [
+      { name: 'Arauca', dane: '81001' },
+      { name: 'Tame', dane: '81794' },
+      { name: 'Saravena', dane: '81736' }
+    ],
+    CH: [
+      { name: 'Quibdó', dane: '27001' },
+      { name: 'Istmina', dane: '27361' }
+    ],
+    GN: [
+      { name: 'Inírida', dane: '94001' }
+    ],
+    GV: [
+      { name: 'San José del Guaviare', dane: '95001' }
+    ],
+    PU: [
+      { name: 'Mocoa', dane: '86001' },
+      { name: 'Puerto Asís', dane: '86568' }
+    ],
+    SA: [
+      { name: 'San Andrés', dane: '88001' }
+    ],
+    VP: [
+      { name: 'Mitú', dane: '97001' }
+    ],
+    VD: [
+      { name: 'Puerto Carreño', dane: '99001' }
+    ]
 }
 
 // Helper: get cities for a department code
