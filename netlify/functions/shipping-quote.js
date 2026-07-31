@@ -1,6 +1,6 @@
 // netlify/functions/shipping-quote.js
 // Cotiza envíos con múltiples transportadoras usando Envia.com API
-// UNA llamada por carrier en paralelo (docs: https://docs.envia.com/docs/ecommerce-checkout)
+// Devuelve solo las 3 opciones más económicas con colores de marca
 
 export default async (req) => {
   if (req.method !== 'POST') {
@@ -24,7 +24,8 @@ export default async (req) => {
           delivery_time: '5-7 días hábiles',
           price: 15000,
           currency: 'COP',
-          logo: null
+          color: '#888780',
+          initials: 'EN'
         }],
         fallback: true
       }), {
@@ -54,6 +55,14 @@ export default async (req) => {
       { name: 'XXL', length: 23, width: 18, height: 25, maxWeight: 3.0 },
       { name: 'MAX', length: 33, width: 27, height: 18, maxWeight: 6.0 },
     ]
+
+    // ─── Colores de marca e iniciales de cada transportadora ───
+    const CARRIER_BRAND = {
+      'coordinadora': { color: '#0033A0', initials: 'CO' },
+      'servientrega': { color: '#009639', initials: 'SE' },
+      'tcc':          { color: '#E31837', initials: 'TCC' },
+      'interrapidisimo': { color: '#1B1464', initials: 'IR' },
+    }
 
     // ─── Calcular peso ───
     let totalWeight = 0
@@ -164,7 +173,6 @@ export default async (req) => {
     // ─── Recopilar opciones ───
     const allCarriers = []
     const seenKeys = new Set()
-    let loggedFirst = false
 
     for (const result of results) {
       if (result.status !== 'fulfilled' || !result.value.success) continue
@@ -173,28 +181,18 @@ export default async (req) => {
         : (data.data && Array.isArray(data.data)) ? data.data
         : []
 
-      for (const option of options) {
-        // ── LOG TEMPORAL: ver todos los campos de la primera opción ──
-        if (!loggedFirst) {
-          console.log('CAMPOS DISPONIBLES:', Object.keys(option).join(', '))
-          console.log('PRIMERA OPCION:', JSON.stringify(option).substring(0, 800))
-          loggedFirst = true
-        }
+      const brand = CARRIER_BRAND[carrier] || { color: '#888780', initials: '?' }
 
+      for (const option of options) {
         const price = parseFloat(option.totalPrice || option.price || 0)
         if (price <= 0) continue
 
         const carrierName = formatCarrierName(option.carrier || carrier)
         const serviceName = formatServiceName(option.service || option.serviceDescription || '')
 
-        // Deduplicar por carrier + precio
         const key = `${carrierName}-${Math.round(price)}`
         if (seenKeys.has(key)) continue
         seenKeys.add(key)
-
-        // Intentar obtener el logo de la respuesta de la API
-        const logo = option.img || option.carrierLogoURL || option.carrier_logo
-          || option.logo || option.carrierLogo || option.image || null
 
         allCarriers.push({
           carrier: carrierName,
@@ -202,18 +200,21 @@ export default async (req) => {
           delivery_time: option.deliveryEstimate || option.days || '3-5 días hábiles',
           price: Math.round(price),
           currency: option.currency || 'COP',
-          logo: logo,
+          color: brand.color,
+          initials: brand.initials,
           service_id: option.service_id || option.serviceId || ''
         })
       }
     }
 
+    // Ordenar por precio y tomar solo las 3 más baratas
     allCarriers.sort((a, b) => a.price - b.price)
+    const top3 = allCarriers.slice(0, 3)
 
-    if (allCarriers.length > 0) {
-      allCarriers[0].recommended = true
+    if (top3.length > 0) {
+      top3[0].recommended = true
       return new Response(JSON.stringify({
-        carriers: allCarriers,
+        carriers: top3,
         fallback: false
       }), {
         status: 200,
@@ -228,7 +229,8 @@ export default async (req) => {
         delivery_time: '5-7 días hábiles',
         price: 15000,
         currency: 'COP',
-        logo: null
+        color: '#888780',
+        initials: 'EN'
       }],
       fallback: true
     }), {
@@ -245,7 +247,8 @@ export default async (req) => {
         delivery_time: '5-7 días hábiles',
         price: 15000,
         currency: 'COP',
-        logo: null
+        color: '#888780',
+        initials: 'EN'
       }],
       fallback: true
     }), {

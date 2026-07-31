@@ -132,13 +132,13 @@
         <!-- Shipping method -->
         <section class="checkout-section">
           <h2 class="checkout-section-title">Método de envío</h2>
-
+ 
           <!-- Loading -->
           <div v-if="shippingLoading" class="shipping-loading">
             <div class="shipping-spinner"></div>
             <span>Cotizando opciones de envío...</span>
           </div>
-
+ 
           <!-- Opciones de envío -->
           <div v-else-if="shippingOptions.length > 0" class="shipping-options">
             <label
@@ -146,8 +146,7 @@
               :key="carrier.carrier + carrier.service + carrier.price"
               class="shipping-option"
               :class="{
-                active: selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service && selectedCarrier.price === carrier.price,
-                recommended: carrier.recommended
+                active: selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service && selectedCarrier.price === carrier.price
               }"
               @click="selectCarrier(carrier)"
             >
@@ -157,44 +156,53 @@
                 :checked="selectedCarrier && selectedCarrier.carrier === carrier.carrier && selectedCarrier.service === carrier.service && selectedCarrier.price === carrier.price"
                 class="shipping-radio-hidden"
               />
-
-              <div class="shipping-logo">
-                <img
-                  v-if="carrier.logo"
-                  :src="carrier.logo"
-                  :alt="carrier.carrier"
-                  class="shipping-logo-img"
-                />
-                <div v-else class="shipping-logo-fallback">
-                  {{ carrier.carrier.charAt(0) }}
-                </div>
+ 
+              <div
+                class="shipping-logo"
+                :style="{ background: carrier.color || '#888' }"
+              >
+                {{ carrier.initials || carrier.carrier.charAt(0) }}
               </div>
-
+ 
               <div class="shipping-option-info">
                 <div class="shipping-carrier-row">
                   <span class="shipping-option-name">{{ carrier.carrier }}</span>
                   <span v-if="carrier.recommended" class="shipping-badge">Más económico</span>
                 </div>
-                <span class="shipping-option-time">{{ carrier.service }} · {{ carrier.delivery_time }}</span>
+                <div class="shipping-option-meta">
+                  <span>{{ carrier.service }}</span>
+                  <span class="shipping-meta-dot"></span>
+                  <span>{{ carrier.delivery_time }}</span>
+                </div>
               </div>
-
-              <span class="shipping-option-price">{{ formatPrice(carrier.price) }}</span>
+ 
+              <div class="shipping-price">
+                <span class="shipping-price-val">{{ formatPrice(carrier.price) }}</span>
+                <span class="shipping-price-cop">COP</span>
+              </div>
             </label>
           </div>
-
-          <!-- Fallback: tarifa plana -->
+ 
+          <!-- Fallback -->
           <div v-else class="shipping-options">
             <label class="shipping-option active">
               <input type="radio" checked class="shipping-radio-hidden" />
-              <div class="shipping-logo-fallback">📦</div>
+              <div class="shipping-logo" style="background: #888;">EN</div>
               <div class="shipping-option-info">
                 <span class="shipping-option-name">Envío estándar</span>
-                <span class="shipping-option-time">5-7 días hábiles</span>
+                <div class="shipping-option-meta">
+                  <span>Estándar</span>
+                  <span class="shipping-meta-dot"></span>
+                  <span>5-7 días hábiles</span>
+                </div>
               </div>
-              <span class="shipping-option-price">{{ formatPrice(shippingCost) }}</span>
+              <div class="shipping-price">
+                <span class="shipping-price-val">{{ formatPrice(shippingCost) }}</span>
+                <span class="shipping-price-cop">COP</span>
+              </div>
             </label>
           </div>
-
+ 
           <!-- Mensajes -->
           <p v-if="shippingError" class="shipping-note shipping-note-error">
             ⚠️ {{ shippingError }}
@@ -434,7 +442,7 @@ async function handlePay() {
         discountAmount: discountAmount.value,
         shippingCost: shippingCost.value,
         total: grandTotal.value,
-        shippingMethod: form.value.shippingMethod
+        shippingMethod: form.value.shippingMethod,
                shippingCarrierCode: selectedCarrier.value?.carrier || null,
         shippingServiceCode: selectedCarrier.value?.service_id || selectedCarrier.value?.service || null,
         destinationDane: getDaneCode(form.value.city, form.value.department) || null,
@@ -625,7 +633,7 @@ async function handlePay() {
 }
 
 /* ── Shipping Options ── */
-
+ 
 .shipping-loading {
   display: flex;
   align-items: center;
@@ -636,7 +644,7 @@ async function handlePay() {
   color: #6b7280;
   font-size: 14px;
 }
-
+ 
 .shipping-spinner {
   width: 20px;
   height: 20px;
@@ -645,21 +653,21 @@ async function handlePay() {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-
+ 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
+ 
 .shipping-options {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
+ 
 .shipping-option {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 16px;
   border: 1.5px solid #e5e7eb;
   border-radius: 10px;
@@ -667,72 +675,57 @@ async function handlePay() {
   transition: all 0.15s ease;
   background: #fff;
 }
-
+ 
 .shipping-option:hover {
   border-color: #2d6a30;
   background: #f8fdf8;
 }
-
+ 
 .shipping-option.active {
   border-color: #2d6a30;
   background: #f0faf0;
   box-shadow: 0 0 0 1px #2d6a30;
 }
-
+ 
 .shipping-radio-hidden {
   position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
 }
-
+ 
 .shipping-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  color: #fff;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  letter-spacing: -0.02em;
 }
-
-.shipping-logo-img {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  border-radius: 6px;
-}
-
-.shipping-logo-fallback {
-  width: 40px;
-  height: 40px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
-  color: #6b7280;
-}
-
+ 
 .shipping-option-info {
   flex: 1;
   min-width: 0;
 }
-
+ 
 .shipping-carrier-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-
+ 
 .shipping-option-name {
   font-weight: 600;
   font-size: 15px;
   color: #1a1a1a;
 }
-
+ 
 .shipping-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -742,33 +735,52 @@ async function handlePay() {
   font-weight: 600;
   border-radius: 100px;
 }
-
-.shipping-option-time {
-  display: block;
+ 
+.shipping-option-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   color: #6b7280;
   margin-top: 2px;
 }
-
-.shipping-option-price {
+ 
+.shipping-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #9ca3af;
   flex-shrink: 0;
+}
+ 
+.shipping-price {
+  flex-shrink: 0;
+  text-align: right;
+}
+ 
+.shipping-price-val {
   font-weight: 600;
   font-size: 15px;
   color: #1a1a1a;
-  text-align: right;
-  white-space: nowrap;
+  display: block;
 }
-
+ 
+.shipping-price-cop {
+  font-size: 11px;
+  color: #9ca3af;
+  display: block;
+}
+ 
 .shipping-note {
   margin-top: 0.75rem;
   font-size: 0.8125rem;
   color: #888;
 }
-
+ 
 .shipping-note-success {
   color: #166534;
 }
-
+ 
 .shipping-note-error {
   color: #991b1b;
   background: #fef2f2;
@@ -776,30 +788,27 @@ async function handlePay() {
   border-radius: 8px;
   border: 1px solid #fecaca;
 }
-
-/* Payment */
-.payment-info {
-  font-size: 0.9375rem;
-  color: #555;
-  margin-bottom: 1rem;
+ 
+@media (max-width: 480px) {
+  .shipping-option {
+    padding: 12px;
+    gap: 10px;
+  }
+ 
+  .shipping-logo {
+    width: 36px;
+    height: 36px;
+    font-size: 11px;
+  }
+ 
+  .shipping-option-name {
+    font-size: 14px;
+  }
+ 
+  .shipping-price-val {
+    font-size: 14px;
+  }
 }
-
-.payment-methods-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.pm-badge {
-  padding: 0.25rem 0.75rem;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #666;
-}
-
 /* Pay button */
 .btn-pay {
   display: block;
