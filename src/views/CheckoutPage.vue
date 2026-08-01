@@ -271,11 +271,11 @@
               <span>Descuento ({{ discountPercent }}%)</span>
               <span>-{{ formatPrice(discountAmount) }}</span>
             </div>
-            <div class="summary-row">
+<div class="summary-row">
               <span>Envío</span>
               <span>{{ formatPrice(shippingCost) }}</span>
             </div>
-            <div class="summary-row summary-row-total">
+                        <div class="summary-row summary-row-total">
               <span>Total</span>
               <span class="summary-total-amount">
                 <small>COP</small> {{ formatPrice(grandTotal) }}
@@ -459,7 +459,7 @@ async function handlePay() {
   // 2. Abrir ePayco con el order_id
   const handler = window.ePayco.checkout.configure({
     key: '48d34913070460166b1fadb4157e1084',
-    test: false
+    test: true
   })
 
   handler.open({
@@ -474,7 +474,7 @@ async function handlePay() {
     lang: 'es',
     external: 'false',
     response: window.location.origin + '/checkout/confirmacion',
-    confirmation: window.location.origin + '/api/epayco-webhook',
+confirmation: window.location.origin + '/.netlify/functions/epayco-webhook',
     email_billing: form.value.email,
     name_billing: form.value.firstName + ' ' + form.value.lastName,
     address_billing: form.value.address,
