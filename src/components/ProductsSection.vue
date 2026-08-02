@@ -177,10 +177,6 @@ if (typeof window !== 'undefined') {
   gap: var(--space-8);
 }
 
-/* Transition group */
-.product-list-enter-active, .product-list-leave-active {
-  transition: all 0.4s ease;
-}
 
 /* Modal */
 .modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }

@@ -58,7 +58,7 @@ export default async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'Fortuna Natural <onboarding@resend.dev>',
+from: 'Fortuna Natural <pedidos@fortunanatural.com>',
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html
@@ -201,7 +201,7 @@ function buildOrderConfirmation(order) {
 
       <div style="padding:24px 32px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;">
         <p style="margin:0;">Fortuna Natural — Productos naturales para tu bienestar</p>
-        <p style="margin:4px 0 0;"><a href="https://fortunanatural.netlify.app" style="color:#1a3c2a;">fortunanatural.netlify.app</a></p>
+<a href="https://fortunanatural.com" style="color:#1a3c2a;">fortunanatural.com</a>
       </div>
     </div>
   </body></html>`
@@ -257,7 +257,7 @@ function buildAdminNotification(order) {
         </div>
 
         <div style="text-align:center;margin:24px 0 0;">
-          <a href="https://fortunanatural.netlify.app/admin" style="display:inline-block;background:#1a3c2a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Ver en Admin</a>
+          <a href="https://fortunanatural.com/admin" style="display:inline-block;background:#1a3c2a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Ver en Admin</a>
           <br><br>
           <a href="https://wa.me/57${(order.customer_phone || '').replace(/\D/g, '')}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">WhatsApp al cliente</a>
         </div>
@@ -318,7 +318,7 @@ function buildShipmentNotification(order) {
 
       <div style="padding:24px 32px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;">
         <p style="margin:0;">Fortuna Natural — Productos naturales para tu bienestar</p>
-        <p style="margin:4px 0 0;"><a href="https://fortunanatural.netlify.app" style="color:#1a3c2a;">fortunanatural.netlify.app</a></p>
+<a href="https://fortunanatural.com" style="color:#1a3c2a;">fortunanatural.com</a>
       </div>
     </div>
   </body></html>`

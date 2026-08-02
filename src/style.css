@@ -393,6 +393,11 @@ p { color: var(--color-text-light); line-height: 1.8; }
   100% { background-position: 200% center; }
 }
 
+.products-grid > * {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 768px) {
   .btn-lg { padding: var(--space-3) var(--space-8); }
