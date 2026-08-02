@@ -229,7 +229,7 @@ watch(() => route.params.slug, () => {
 
 <style scoped>
 .product-detail {
-  padding-top: 1rem;
+  padding-top: 80px;
 }
 
 /* Breadcrumb */

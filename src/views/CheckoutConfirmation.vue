@@ -12,34 +12,78 @@
 
     <div class="confirmation-content">
       <div class="confirmation-card">
-        <div class="confirmation-icon">✅</div>
-        <h1>¡Gracias por tu compra!</h1>
+        <div class="confirmation-icon">{{ statusConfig.icon }}</div>
+        <h1 :style="{ color: statusConfig.color }">{{ statusConfig.title }}</h1>
         <p class="confirmation-subtitle">
-          Tu pedido ha sido recibido y está siendo procesado.
+          {{ statusConfig.subtitle }}
         </p>
 
-        <div class="confirmation-details" v-if="refPayco">
-          <div class="detail-row">
+        <div class="confirmation-details" v-if="refPayco || transactionId">
+          <div class="detail-row" v-if="refPayco">
             <span class="detail-label">Referencia ePayco</span>
             <span class="detail-value">{{ refPayco }}</span>
+          </div>
+          <div class="detail-row" v-if="transactionId">
+            <span class="detail-label">ID Transacción</span>
+            <span class="detail-value">{{ transactionId }}</span>
+          </div>
+          <div class="detail-row" v-if="paymentStatus !== 'pending'">
+            <span class="detail-label">Estado</span>
+            <span class="detail-value" :style="{ color: statusConfig.color }">
+              {{ statusConfig.statusLabel }}
+            </span>
           </div>
         </div>
 
         <div class="confirmation-info">
-          <div class="info-item">
-            <span class="info-icon">📧</span>
-            <div>
-              <strong>Confirmación por correo</strong>
-              <p>Recibirás un email con los detalles de tu pedido.</p>
+          <!-- Aprobado -->
+          <template v-if="paymentStatus === 'approved'">
+            <div class="info-item">
+              <span class="info-icon">📧</span>
+              <div>
+                <strong>Confirmación por correo</strong>
+                <p>Recibirás un email con los detalles de tu pedido.</p>
+              </div>
             </div>
-          </div>
-          <div class="info-item">
-            <span class="info-icon">📦</span>
-            <div>
-              <strong>Envío</strong>
-              <p>Te notificaremos cuando tu pedido sea despachado.</p>
+            <div class="info-item">
+              <span class="info-icon">📦</span>
+              <div>
+                <strong>Envío</strong>
+                <p>Te notificaremos cuando tu pedido sea despachado.</p>
+              </div>
             </div>
-          </div>
+          </template>
+
+          <!-- Pendiente -->
+          <template v-else-if="paymentStatus === 'pending'">
+            <div class="info-item">
+              <span class="info-icon">⏳</span>
+              <div>
+                <strong>Verificación en proceso</strong>
+                <p>Tu pago está siendo verificado. Esto puede tomar unos minutos.</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <span class="info-icon">📧</span>
+              <div>
+                <strong>Te avisamos por correo</strong>
+                <p>Recibirás un email cuando el pago sea confirmado.</p>
+              </div>
+            </div>
+          </template>
+
+          <!-- Rechazado o fallido -->
+          <template v-else>
+            <div class="info-item">
+              <span class="info-icon">💳</span>
+              <div>
+                <strong>Intenta de nuevo</strong>
+                <p>Puedes volver a la tienda y realizar el pago con otro método.</p>
+              </div>
+            </div>
+          </template>
+
+          <!-- Siempre visible -->
           <div class="info-item">
             <span class="info-icon">💬</span>
             <div>
@@ -67,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { site } from '../data/site.js'
 import { useCart } from '../composables/useCart.js'
@@ -76,6 +120,42 @@ const route = useRoute()
 const { clearCart } = useCart()
 
 const refPayco = ref('')
+const transactionId = ref('')
+const paymentStatus = ref('pending') // 'approved' | 'rejected' | 'pending' | 'failed'
+
+const statusConfig = computed(() => {
+  const configs = {
+    approved: {
+      icon: '✅',
+      title: '¡Gracias por tu compra!',
+      subtitle: 'Tu pago fue aprobado y tu pedido está siendo procesado.',
+      statusLabel: 'Aprobado',
+      color: '#166534'
+    },
+    pending: {
+      icon: '⏳',
+      title: 'Pago pendiente',
+      subtitle: 'Tu transacción está en proceso de verificación. Te notificaremos por correo cuando sea confirmada.',
+      statusLabel: 'Pendiente',
+      color: '#92400e'
+    },
+    rejected: {
+      icon: '❌',
+      title: 'Pago rechazado',
+      subtitle: 'Tu transacción no fue aprobada. Intenta con otro método de pago o contacta a tu banco.',
+      statusLabel: 'Rechazado',
+      color: '#991b1b'
+    },
+    failed: {
+      icon: '⚠️',
+      title: 'Error en el pago',
+      subtitle: 'Ocurrió un error durante la transacción. Tu dinero no fue cobrado. Puedes intentar nuevamente.',
+      statusLabel: 'Fallido',
+      color: '#991b1b'
+    }
+  }
+  return configs[paymentStatus.value] || configs.pending
+})
 
 const whatsappUrl = (() => {
   const num = site.contact.whatsapp.replace(/\D/g, '')
@@ -84,12 +164,38 @@ const whatsappUrl = (() => {
 })()
 
 onMounted(() => {
-  // ePayco sends ref_payco as query param
-  if (route.query.ref_payco) {
-    refPayco.value = route.query.ref_payco
+  const q = route.query
+
+  // Capturar referencias de ePayco
+  if (q.ref_payco) refPayco.value = q.ref_payco
+  if (q.x_transaction_id) transactionId.value = q.x_transaction_id
+
+  // ePayco x_cod_response: 1 = Aceptada, 2 = Rechazada, 3 = Pendiente, 4 = Fallida
+  const codResponse = q.x_cod_response || q.x_cod_transaction_state
+  if (codResponse === '1') {
+    paymentStatus.value = 'approved'
+    clearCart()
+  } else if (codResponse === '2') {
+    paymentStatus.value = 'rejected'
+  } else if (codResponse === '3') {
+    paymentStatus.value = 'pending'
+  } else if (codResponse === '4') {
+    paymentStatus.value = 'failed'
+  } else if (q.x_response) {
+    // Fallback: detectar por texto de respuesta
+    const resp = q.x_response.toLowerCase()
+    if (resp.includes('aceptada') || resp.includes('aprobada')) {
+      paymentStatus.value = 'approved'
+      clearCart()
+    } else if (resp.includes('rechazada')) {
+      paymentStatus.value = 'rejected'
+    } else if (resp.includes('pendiente')) {
+      paymentStatus.value = 'pending'
+    } else {
+      paymentStatus.value = 'failed'
+    }
   }
-  // Clear the cart after successful payment
-  clearCart()
+  // Si no hay parámetros de ePayco, se queda en 'pending' por defecto
 })
 </script>
 
@@ -161,7 +267,6 @@ onMounted(() => {
 .confirmation-card h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1a3c2a;
   margin-bottom: 0.5rem;
 }
 
@@ -176,6 +281,9 @@ onMounted(() => {
   border-radius: 10px;
   padding: 1rem 1.5rem;
   margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .detail-row {

@@ -145,7 +145,7 @@ export default async (req) => {
       }],
       shipment: {
         type: 1,
-        carrier: order.shipping_carrier_code || 'coordinadora',
+        carrier: (order.shipping_carrier_code || 'coordinadora').toLowerCase(),
         service: order.shipping_service_code || ''
       },
       settings: {

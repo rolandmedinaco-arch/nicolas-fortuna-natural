@@ -109,9 +109,11 @@ const { addToCart } = useCart()
 const activeFilter = ref('all')
 const selectedProduct = ref(null)
 
+// Después — solo categorías con al menos 1 producto
+const usedCategories = [...new Set(products.map(p => p.category))]
 const filterOptions = [
   { value: 'all', label: '🌿 Todos' },
-  ...Object.values(CATEGORIES).map(c => ({ value: c, label: c })),
+  ...usedCategories.map(c => ({ value: c, label: c })),
 ]
 
 const filteredProducts = computed(() =>

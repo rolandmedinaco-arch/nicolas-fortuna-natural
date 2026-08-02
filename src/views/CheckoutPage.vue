@@ -267,14 +267,10 @@
   <span>Envío</span>
   <span style="color: #166534; font-weight: 600;">Gratis 🎉</span>
 </div>
-            <div v-if="discountPercent > 0" class="summary-row summary-row-discount">
-              <span>Descuento ({{ discountPercent }}%)</span>
-              <span>-{{ formatPrice(discountAmount) }}</span>
-            </div>
-<div class="summary-row">
-              <span>Envío</span>
-              <span>{{ formatPrice(shippingCost) }}</span>
-            </div>
+<div v-if="discountPercent > 0" class="summary-row summary-row-discount">
+  <span>Descuento ({{ discountPercent }}%)</span>
+  <span>-{{ formatPrice(discountAmount) }}</span>
+</div>
                         <div class="summary-row summary-row-total">
               <span>Total</span>
               <span class="summary-total-amount">
@@ -459,7 +455,7 @@ async function handlePay() {
   // 2. Abrir ePayco con el order_id
   const handler = window.ePayco.checkout.configure({
     key: '48d34913070460166b1fadb4157e1084',
-    test: true
+    test: false
   })
 
   handler.open({
