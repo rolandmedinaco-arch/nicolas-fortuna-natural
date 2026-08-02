@@ -455,7 +455,7 @@ async function handlePay() {
   // 2. Abrir ePayco con el order_id
   const handler = window.ePayco.checkout.configure({
     key: '48d34913070460166b1fadb4157e1084',
-    test: false
+    test: true
   })
 
   handler.open({

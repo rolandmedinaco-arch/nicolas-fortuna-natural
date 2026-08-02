@@ -22,18 +22,17 @@
         </button>
       </div>
 
-      <!-- Products grid -->
-      <TransitionGroup name="product-list" tag="div" class="products-grid">
+<!-- Products grid -->
+      <div class="products-grid">
         <ProductCard
           v-for="product in filteredProducts"
           :key="product.id"
           :product="product"
-          class="animate-on-scroll"
           @open-detail="openModal"
         />
-      </TransitionGroup>
-    </div>
+      </div>
 
+      </div>
     <!-- Product Detail Modal -->
     <Transition name="modal">
       <div v-if="selectedProduct" class="modal-overlay" @click.self="closeModal">
@@ -182,10 +181,6 @@ if (typeof window !== 'undefined') {
 .product-list-enter-active, .product-list-leave-active {
   transition: all 0.4s ease;
 }
-.product-list-enter-from, .product-list-leave-to {
-  opacity: 0; transform: scale(0.9);
-}
-.product-list-move { transition: transform 0.4s ease; }
 
 /* Modal */
 .modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }

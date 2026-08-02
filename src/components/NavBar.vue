@@ -145,8 +145,6 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   color: var(--color-primary);
   font-style: italic;
 }
-.navbar:not(.scrolled) .logo-brand { color: white; }
-.navbar:not(.scrolled) .logo-accent { color: var(--color-accent-light); }
 
 /* Nav */
 .navbar-nav {
@@ -157,7 +155,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 .nav-link {
   font-size: var(--text-sm);
   font-weight: 500;
-  color: rgba(255,255,255,0.9);
+  color:var(--color-text-light);
   transition: color var(--transition-fast);
   position: relative;
   padding: var(--space-1) 0;
@@ -176,7 +174,6 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 }
 .nav-link:hover::after, .nav-link.active::after { width: 100%; }
 .nav-link.active { color: var(--color-primary); font-weight: 600; }
-.navbar:not(.scrolled) .nav-link.active { color: var(--color-accent-light); }
 .nav-cta { margin-left: var(--space-2); }
 
 /* Hamburger */
