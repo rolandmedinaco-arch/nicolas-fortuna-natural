@@ -196,6 +196,7 @@ export default async (req) => {
 
         allCarriers.push({
           carrier: carrierName,
+          carrier_code: carrier, 
           service: serviceName,
           delivery_time: option.deliveryEstimate || option.days || '3-5 días hábiles',
           price: Math.round(price),

@@ -405,6 +405,13 @@ function applyDiscount() {
 async function handlePay() {
   if (!isFormValid.value) return
 
+  // Pega esto en la consola del navegador
+// No va a funcionar directamente porque es Vue,
+// pero puedes agregar esto temporalmente en handlePay() antes del fetch:
+console.log('selectedCarrier:', selectedCarrier.value)
+console.log('carrier code:', selectedCarrier.value?.carrier)
+console.log('service code:', selectedCarrier.value?.service_id, selectedCarrier.value?.service)
+
   const description = cartItems.value
     .map(item => `${item.name} x${item.quantity}`)
     .join(', ')
@@ -439,7 +446,7 @@ async function handlePay() {
         shippingCost: shippingCost.value,
         total: grandTotal.value,
         shippingMethod: form.value.shippingMethod,
-               shippingCarrierCode: selectedCarrier.value?.carrier || null,
+shippingCarrierCode: selectedCarrier.value?.carrier_code || selectedCarrier.value?.carrier || null,
         shippingServiceCode: selectedCarrier.value?.service_id || selectedCarrier.value?.service || null,
         destinationDane: getDaneCode(form.value.city, form.value.department) || null,
       })
