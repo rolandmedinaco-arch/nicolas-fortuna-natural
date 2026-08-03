@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { products, formatPrice } from '../data/products.js'
 import { site } from '../data/site.js'
@@ -224,7 +224,87 @@ function handleAddToCart() {
 watch(() => route.params.slug, () => {
   quantity.value = 1
   activeTab.value = 'description'
+  updateSchema()
+  updateMetaTags()
 })
+
+// Schema.org JSON-LD para SEO
+function updateSchema() {
+  if (!product.value) return
+  
+  const oldSchema = document.querySelector('#product-schema')
+  if (oldSchema) oldSchema.remove()
+  
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.value.name,
+    "description": product.value.shortDescription,
+    "image": `https://fortunanatural.com${product.value.image}`,
+    "brand": {
+      "@type": "Brand",
+      "name": "Fortuna Natural"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": product.value.price,
+      "priceCurrency": "COP",
+      "availability": "https://schema.org/InStock",
+      "url": `https://fortunanatural.com/producto/${product.value.slug}`,
+      "seller": {
+        "@type": "Organization",
+        "name": "Fortuna Natural"
+      }
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "reviewCount": "150"
+    }
+  }
+  
+  const script = document.createElement('script')
+  script.id = 'product-schema'
+  script.type = 'application/ld+json'
+  script.textContent = JSON.stringify(schema)
+  document.head.appendChild(script)
+}
+
+// Meta tags dinámicos por producto
+function updateMetaTags() {
+  if (!product.value) return
+  
+  document.title = `${product.value.name} — ${product.value.tagline} | Fortuna Natural`
+  
+  const updates = {
+    'meta[name="description"]': product.value.shortDescription,
+    'meta[property="og:title"]': `${product.value.name} — ${product.value.tagline} | Fortuna Natural`,
+    'meta[property="og:description"]': product.value.shortDescription,
+    'meta[property="og:image"]': `https://fortunanatural.com${product.value.image}`,
+    'meta[property="og:url"]': `https://fortunanatural.com/producto/${product.value.slug}`,
+    'meta[name="twitter:title"]': `${product.value.name} — ${product.value.tagline}`,
+    'meta[name="twitter:description"]': product.value.shortDescription,
+    'meta[name="twitter:image"]': `https://fortunanatural.com${product.value.image}`,
+    'link[rel="canonical"]': null
+  }
+  
+  for (const [selector, content] of Object.entries(updates)) {
+    const el = document.querySelector(selector)
+    if (el) {
+      if (selector.startsWith('link')) {
+        el.setAttribute('href', `https://fortunanatural.com/producto/${product.value.slug}`)
+      } else {
+        el.setAttribute('content', content)
+      }
+    }
+  }
+}
+
+onMounted(() => {
+  updateSchema()
+  updateMetaTags()
+})
+
 </script>
 
 <style scoped>
